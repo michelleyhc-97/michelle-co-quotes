@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppData } from "@/lib/store";
 import { useIsBoss } from "@/lib/UserContext";
 
@@ -13,6 +13,17 @@ export default function CustomersPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter((c) =>
+      [c.company, c.contact, c.email, c.phone].some((field) =>
+        field?.toLowerCase().includes(q)
+      )
+    );
+  }, [customers, query]);
 
   function set(key) {
     return (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -62,7 +73,11 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Customers</h1>
-          <p className="mt-1 text-sm text-muted">{customers.length} companies on file.</p>
+          <p className="mt-1 text-sm text-muted">
+            {filtered.length === customers.length
+              ? `${customers.length} companies on file.`
+              : `${filtered.length} of ${customers.length} companies match "${query}".`}
+          </p>
         </div>
         <button
           type="button"
@@ -71,6 +86,26 @@ export default function CustomersPage() {
         >
           + Add Customer
         </button>
+      </div>
+
+      <div className="relative max-w-sm">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by company, contact, email, or phone…"
+          className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-faint hover:text-ink"
+          >
+            ×
+          </button>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
@@ -85,7 +120,7 @@ export default function CustomersPage() {
             </tr>
           </thead>
           <tbody>
-            {customers.map((c) => (
+            {filtered.map((c) => (
               <tr key={c.id} className="border-t border-border">
                 <td className="px-5 py-3.5 font-medium text-ink">{c.company}</td>
                 <td className="px-5 py-3.5 text-muted">{c.contact}</td>
@@ -117,10 +152,12 @@ export default function CustomersPage() {
                 </td>
               </tr>
             ))}
-            {customers.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-5 py-8 text-center text-muted">
-                  No customers yet.
+                  {customers.length === 0
+                    ? "No customers yet."
+                    : `No customers match "${query}".`}
                 </td>
               </tr>
             )}

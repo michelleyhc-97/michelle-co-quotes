@@ -143,59 +143,61 @@ commentary.
 
 ### Telegram Ordering Bot
 
-Customers can order straight from Telegram — no login, no app. They message
-your bot with a product and quantity, e.g.:
+**Live:** [@MichelleCC_bot](https://t.me/MichelleCC_bot). Customers order
+straight from Telegram — no login, no app. They message the bot with a
+product and quantity, e.g.:
 
 ```
-Bracelet, 2
+Livestream Hosting, 2
 ```
 
-(also understood: `Bracelet x2`, `Bracelet x 2`, `Bracelet 2`) and the bot:
+(also understood: `Livestream Hosting x2`, `Livestream Hosting x 2`,
+`Livestream Hosting 2`) and the bot:
 
-1. Looks up `Bracelet` in `/products` (case-insensitive, exact name match).
+1. Looks it up in `/products` — an exact (case-insensitive) match first,
+   then an unambiguous "starts with" match, so `Livestream Hosting`
+   resolves to the full `Livestream Hosting (per session)` entry without
+   the customer typing the `(per session)` qualifier. Two or more
+   candidates, or zero, both count as not-found — it never guesses.
 2. If found, replies with a clean quote and saves the order to
    `telegram_orders`:
    ```
    Here's your quote:
 
-   Product: Bracelet
+   Product: Livestream Hosting (per session)
    Quantity: 2
-   Unit Price: RM 25.00
-   Total: RM 50.00
+   Unit Price: RM 1,800.00
+   Total: RM 3,600.00
    ```
 3. If not found, replies **"Product not found, please contact customer
    service"** and saves nothing.
+4. Any message it can't parse (or `/start`) gets the current catalog —
+   name and price for every product — so customers actually know what to
+   type, built fresh from `/products` every time rather than hardcoded.
 
-All of this is deliberately simple — one message format, one exact-match
-lookup, no NLP, no order status/workflow. See
-[`lib/telegram.js`](lib/telegram.js) (message parsing + sending) and
+All of this is deliberately simple — one message format, no NLP, no order
+status/workflow. See [`lib/telegram.js`](lib/telegram.js) (parsing,
+matching, sending) and
 [`app/api/telegram/webhook/route.js`](app/api/telegram/webhook/route.js)
 (the actual handler Telegram calls).
 
-- **`/products`** — your price list; add/edit/delete products (name + unit
-  price in RM). This is what the bot quotes from — a customer's message has
-  to match a product name here exactly (case-insensitive) to get a quote.
+- **`/products`** — your price list; add/edit/delete (name + unit price in
+  RM). Currently seeded with the 10 real services pulled from historical
+  quotes (each had one consistent price across every past quote it
+  appeared in). This is what the bot quotes from.
 - **`/telegram-orders`** — read-only list of every order the bot has taken
   (date, Telegram username, product, qty, unit price, total); boss-only
   delete for cleanup.
 
-**Setup (one-time):**
-
-1. Get your bot's token from [@BotFather](https://t.me/BotFather) in
-   Telegram — it looks like `123456789:AAH...` (not your bot's name/
-   username). Add it as `TELEGRAM_BOT_TOKEN` in `.env.local` and as a Vercel
-   Production Environment Variable.
-2. Register the webhook (once, after deploying) so Telegram actually sends
-   messages here — replace `<TOKEN>` and run:
-   ```bash
-   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://quotation-system-rust-tau.vercel.app/api/telegram/webhook&secret_token=<value of TELEGRAM_WEBHOOK_SECRET in .env.local>"
-   ```
-3. Message your bot in Telegram to confirm it replies.
-
-`TELEGRAM_WEBHOOK_SECRET` is already generated and set (see **Env vars**)
-— Telegram echoes it back on every request so the webhook route can tell
-real Telegram traffic apart from a random POST to that URL; you don't need
-to do anything with it beyond the `setWebhook` command above.
+**Setup** (already done, for reference): `TELEGRAM_BOT_TOKEN` came from
+[@BotFather](https://t.me/BotFather), verified via Telegram's `getMe`;
+the webhook was registered once via:
+```bash
+curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://quotation-system-rust-tau.vercel.app/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+```
+Both are set in `.env.local` and Vercel Production Environment Variables.
+If the bot token is ever rotated (via @BotFather), update both places and
+re-run the `setWebhook` command with the new token.
 
 ## Pages
 
@@ -311,8 +313,7 @@ TELEGRAM_WEBHOOK_SECRET=<server-only — already generated, see Telegram Orderin
 ```
 
 All are already in `.env.local` (gitignored) and set as Vercel Production
-Environment Variables, **except `TELEGRAM_BOT_TOKEN`** — that one's still
-blank pending the real token (see **Telegram Ordering Bot** above).
+Environment Variables.
 
 ## PDF export & emailing quotes/invoices
 

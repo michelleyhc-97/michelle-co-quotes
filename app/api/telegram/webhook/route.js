@@ -1,6 +1,12 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { formatCurrency } from "@/lib/quoteUtils";
-import { sendTelegramMessage, parseOrderMessage, USAGE_MESSAGE, NOT_FOUND_MESSAGE } from "@/lib/telegram";
+import {
+  sendTelegramMessage,
+  parseOrderMessage,
+  findProduct,
+  buildUsageMessage,
+  NOT_FOUND_MESSAGE,
+} from "@/lib/telegram";
 
 // Telegram calls this on every message sent to the bot. Registered once via
 // Telegram's setWebhook API (see README) with a secret token that Telegram
@@ -24,24 +30,24 @@ export async function POST(request) {
   }
 
   try {
+    const supabase = supabaseAdmin();
+
     if (text.trim().startsWith("/")) {
-      await sendTelegramMessage(chatId, USAGE_MESSAGE);
+      const { data: products, error } = await supabase.from("products").select("*");
+      if (error) throw error;
+      await sendTelegramMessage(chatId, buildUsageMessage(products));
       return Response.json({ ok: true });
     }
 
     const parsed = parseOrderMessage(text);
     if (!parsed) {
-      await sendTelegramMessage(chatId, USAGE_MESSAGE);
+      const { data: products, error } = await supabase.from("products").select("*");
+      if (error) throw error;
+      await sendTelegramMessage(chatId, buildUsageMessage(products));
       return Response.json({ ok: true });
     }
 
-    const supabase = supabaseAdmin();
-    const { data: product, error: lookupError } = await supabase
-      .from("products")
-      .select("*")
-      .ilike("name", parsed.productName)
-      .maybeSingle();
-    if (lookupError) throw lookupError;
+    const product = await findProduct(supabase, parsed.productName);
 
     if (!product) {
       await sendTelegramMessage(chatId, NOT_FOUND_MESSAGE);

@@ -18,7 +18,7 @@ const currency = (n) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 export default function DashboardPage() {
-  const { quotes, getCustomer } = useAppData();
+  const { quotes, loading, getCustomer } = useAppData();
 
   const thisMonth = quotes.filter((q) => isThisMonth(q.createdAt));
   const closed = quotes.filter((q) => CLOSED.has(q.status));
@@ -39,7 +39,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold text-ink">Dashboard</h1>
           <p className="mt-1 text-sm text-muted">
-            An overview of this month&apos;s quoting activity.
+            {loading ? "Loading…" : "An overview of this month's quoting activity."}
           </p>
         </div>
         <Link

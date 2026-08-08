@@ -15,24 +15,43 @@ Open [http://localhost:3001](http://localhost:3001) (port 3001 so it can
 run alongside the marketing site's dev server on 3000). You'll land on a
 login screen — see **Authentication** below for the demo accounts.
 
-## Current status: mock data, but real auth + real PDF/email delivery
+## Current status: real, persistent data
 
-Customers and quotes are still seed data in [`lib/store.js`](lib/store.js),
-held in memory via React Context (`AppDataProvider`) — nothing is saved to a
-database yet, by design. Adding/editing/deleting updates every page live
-within your session, but a full page reload resets everything back to the
-seed data.
+Customers and quotes are stored in a real Postgres database (Supabase) —
+adding, editing, or deleting something and refreshing the page keeps it.
+Auth, PDF generation, and email delivery are all real too. Nothing in this
+app is mock data anymore.
 
-**Login, PDF generation, and email sending are all real**, though — not
-mocked. That's a deliberate split: the parts that don't need a database yet
-(auth, PDFs, email) are built properly now; the data layer is the one piece
-intentionally left as a placeholder until you're ready for it.
+### A note on where the schema came from
+
+When connecting Supabase, the project already had `customers`, `quotes`,
+and `quote_items` tables — with real seed data (7 customers, 14 quotes) —
+that don't quite match the shape this README originally sketched (e.g.
+`company_name`/`contact_person` instead of `company`/`contact`,
+`quote_number` instead of `number`, plus invoicing fields this app doesn't
+have UI for yet: `tax_rate`, `subtotal`, `valid_until`, `notes`). Rather than
+drop and recreate those tables, **the app was adapted to the existing
+schema** — see [`lib/dataMappers.js`](lib/dataMappers.js), which translates
+between the database's column names and the camelCase shape every page
+component already expected. No page component needed to change.
+
+Two consequences worth knowing:
+
+- **Tax is preserved, but not editable.** Some existing quotes have a
+  `tax_rate` applied (their stored `total` is higher than a plain sum of
+  their line items — e.g. Malaysia's 6% SST). Editing such a quote's items
+  recomputes the subtotal and re-applies whatever tax_rate it already had,
+  so you won't silently lose that. New quotes created in this app default
+  to 0% tax, since there's no UI for setting it yet.
+- **`valid_until` and `notes`** exist on some rows but aren't shown or
+  editable anywhere in the UI yet.
 
 ## Pages
 
 - `/` — Dashboard: quotes this month, closed, pending, status breakdown,
   recent quotes
-- `/customers` — Customer list with Add/Edit (modal); Delete is boss-only
+- `/customers` — Customer list with search, Add/Edit (modal); Delete is
+  boss-only
 - `/quotes` — All quotes, filterable by status (including **Amendment
   Requested**), with inline status changes, View, Edit, and boss-only Delete
 - `/quotes/new` — Pick a customer, add line items (qty × unit price), see
@@ -45,14 +64,13 @@ intentionally left as a placeholder until you're ready for it.
   sees when you send them a quote: view details, download the PDF, and
   Accept / Reject / Request Changes
 
-Editing/deleting a customer that has existing quotes is allowed — the quotes
-stay, they just show a blank customer if you look them up (there's no real
-database relationship to enforce yet).
+Deleting a customer that has existing quotes is allowed — the database sets
+those quotes' `customer_id` to null (`ON DELETE SET NULL`), so they stay on
+record but show a blank customer.
 
 ## Customer amendment requests
 
-This is the main new workflow: a customer can ask for changes instead of
-just accepting or rejecting.
+A customer can ask for changes instead of just accepting or rejecting:
 
 1. You send a quote (via **Email to Customer** on the edit page, or by
    copying its `/q/[id]` link).
@@ -60,37 +78,66 @@ just accepting or rejecting.
    **Reject**, or **Request Changes** (a required text box asking what
    they'd like different and why).
 3. Requesting changes sets the quote's status to **Amendment Requested**,
-   stores their reason, and emails your team so you actually find out.
+   stores their reason in the database, and emails your team.
 4. Back in `/quotes` or the quote's edit page, you'll see the reason (hover
    the "why?" link, or the full callout on the edit page), make your
    changes, and move the status forward again once it's resent.
 
-**Honest limitation:** because there's no database yet, a customer's action
-only updates the browser session that made it. The **email notification is
-real** and will reach you regardless — but the in-app status won't show as
-updated in *your* browser until there's a shared database both sides can
-read from. Once that's added, this becomes fully real-time.
+This is fully real now — a customer's action on `/q/[id]` is visible to
+everyone on your team immediately, from any device, because it's a real
+database write, not browser-local state.
 
 ## Authentication
 
 Two demo accounts, since this is for you and your sales team:
 
-| Username | Password         | Role  |
-| -------- | ---------------- | ----- |
-| `boss`   | `boss-demo-2026` | boss  |
-| `sales`  | `sales-demo-2026`| sales |
+| Username | Password          | Role  |
+| -------- | ------------------ | ----- |
+| `boss`   | `boss-demo-2026`   | boss  |
+| `sales`  | `sales-demo-2026`  | sales |
 
 Override either password via `BOSS_PASSWORD` / `SALES_PASSWORD` in
-`.env.local`. Sessions are signed cookies (7-day expiry) — no database
-needed for this part, just like the marketing site's CMS login.
+`.env.local`. Sessions are signed cookies (7-day expiry) — this part
+intentionally still doesn't use a database; see **Next steps**.
 
 **Role difference:** only the `boss` role can delete customers or quotes.
-Both roles can view, create, and edit everything. This is a starting point
-— if you want finer-grained permissions later (e.g. sales reps only seeing
-their own customers), that's a real-database feature.
+Both roles can view, create, and edit everything.
 
-`/login`, `/q/[id]`, `/api/login`, and `/api/notify-amendment` are the only
-routes that don't require a session — enforced in [`proxy.js`](proxy.js).
+`/login`, `/q/[id]`, `/api/login`, `/api/notify-amendment`, and
+`/api/public/*` are the only routes that don't require a session — enforced
+in [`proxy.js`](proxy.js).
+
+## Database (Supabase)
+
+- **Project:** "michelle@gintell.com's Project" (ref `aaxcvrxblpfokltmkqbr`)
+- **Tables:** `customers`, `quotes`, `quote_items` — see
+  [`supabase/migrations/`](supabase/migrations) for the exact changes made
+  (the base schema already existed; migrations here are additive: widening
+  the status check constraint to include "Amendment Requested", adding
+  `amendment_reason`/`amendment_requested_at` columns, giving `quote_number`
+  a sequence-backed default, and granting `service_role` table access it
+  was missing)
+- **Access pattern:** the browser never talks to Supabase directly. Every
+  table has Row Level Security enabled; the app's own API routes (protected
+  by the session-cookie auth above) use the `service_role` key server-side
+  ([`lib/supabaseAdmin.js`](lib/supabaseAdmin.js)), which bypasses RLS by
+  design. The public `/q/[id]` page hits a narrow `/api/public/quotes/[id]`
+  endpoint that can only read/act on one quote at a time — it has no way to
+  list customers or other quotes.
+- **Local CLI access:** `SUPABASE_ACCESS_TOKEN` (a personal access token,
+  not committed anywhere) plus `npx supabase db query --linked "<sql>"` —
+  this project's Supabase CLI login uses the Management API rather than a
+  direct Postgres connection, so no database password was ever needed.
+
+### Env vars
+
+```
+SUPABASE_URL=https://aaxcvrxblpfokltmkqbr.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service_role JWT — server-only, never exposed to the browser>
+```
+
+Both are already in `.env.local` (gitignored) and set as Vercel Production
+Environment Variables.
 
 ## PDF export & emailing quotes
 
@@ -108,26 +155,27 @@ To turn on real delivery: sign up at [resend.com](https://resend.com) with
 `michelle@gintell.com`, grab an API key from
 [resend.com/api-keys](https://resend.com/api-keys), and add it to
 `.env.local` as `RESEND_API_KEY=re_...` (restart `npm run dev` after). Add
-the same key to Vercel's Environment Variables if/when this gets deployed.
+the same key to Vercel's Environment Variables if/when you want this live.
 
-## Next steps (when you're ready to make this real)
+## Next steps
 
-1. **A real database** — something like Postgres (via Vercel Postgres,
-   Supabase, or Neon) to replace `lib/store.js`'s in-memory arrays. This is
-   what makes customer actions on `/q/[id]` visible cross-device/session
-   instead of just in the browser that made them.
-2. **Real user accounts** — replace the two hardcoded demo logins with a
-   real accounts table, so each sales rep has their own login instead of a
-   shared "sales" account.
-3. **Finer permissions** — e.g. sales reps only seeing customers/quotes
-   they own, once there's a database to model that relationship.
+1. **Real user accounts** — replace the two hardcoded demo logins with a
+   real accounts table (now easy — the database is already here), so each
+   sales rep has their own login instead of a shared "sales" account.
+2. **Finer permissions** — e.g. sales reps only seeing customers/quotes
+   they own.
+3. **Tax / valid-until / notes UI** — the database already has columns for
+   these (see note above); they just don't have inputs in the Create/Edit
+   Quote form yet.
+4. **Turn on Resend** for real email delivery (see above) — currently
+   console-log-only until you add an API key.
 
 ## Tech
 
 - Next.js 16 (App Router), with an `(app)` route group for the
   authenticated dashboard and standalone `/login` + `/q/[id]` pages outside it
 - Tailwind CSS v4, Inter font
+- Supabase (Postgres) via `@supabase/supabase-js`, server-only
 - `@react-pdf/renderer` for PDF generation (works entirely client-side)
 - [Resend](https://resend.com) for email delivery
-- Signed-cookie auth (same pattern as the marketing site's CMS), no
-  database or third-party auth provider
+- Signed-cookie auth (same pattern as the marketing site's CMS)

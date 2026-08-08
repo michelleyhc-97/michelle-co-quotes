@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useAppData, quoteTotal, IDENTITY } from "@/lib/store";
+import { quoteTotal, IDENTITY } from "@/lib/store";
 import StatusBadge from "@/components/StatusBadge";
 import { buildQuotePdfBlob, downloadBlob } from "@/lib/pdf";
 
@@ -13,30 +13,43 @@ const ACTIONABLE_STATUSES = new Set(["Sent", "Amendment Requested"]);
 
 export default function PublicQuotePage() {
   const { id } = useParams();
-  const { getQuote, getCustomer, requestAmendment, respondToQuote } = useAppData();
-  const quote = getQuote(id);
+
+  const [quote, setQuote] = useState(null);
+  const [customer, setCustomer] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   const [showReasonBox, setShowReasonBox] = useState(false);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
+  const [actionError, setActionError] = useState("");
   const [downloading, setDownloading] = useState(false);
 
-  if (!quote) {
-    return (
-      <Centered>
-        <p className="text-lg font-semibold text-ink">Quote not found</p>
-        <p className="mt-2 text-sm text-muted">
-          This link may be out of date. Since this demo doesn&apos;t have a real database yet,
-          quotes only exist in the browser session that created them.
-        </p>
-      </Centered>
-    );
-  }
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/public/quotes/${id}`);
+      const data = await res.json();
+      if (!data.ok) {
+        setNotFound(true);
+        return;
+      }
+      setQuote(data.quote);
+      setCustomer(data.customer);
+    } catch {
+      setNotFound(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-  const customer = getCustomer(quote.customerId);
-  const total = quoteTotal(quote);
-  const canAct = ACTIONABLE_STATUSES.has(quote.status);
+  useEffect(() => {
+    // load() sets state asynchronously (after its own await), not
+    // synchronously within this effect — the standard "fetch on mount"
+    // pattern. This rule's static analysis can't tell the two apart.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
   async function notify(action, extraReason) {
     try {
@@ -51,27 +64,53 @@ export default function PublicQuotePage() {
         }),
       });
     } catch {
-      // Non-fatal — the in-app status change already happened.
+      // Non-fatal — the status change itself already succeeded.
     }
   }
 
-  async function handleRespond(decision) {
+  async function respond(action) {
     setSubmitting(true);
-    respondToQuote(quote.id, decision);
-    await notify(decision === "Accepted" ? "accept" : "reject");
-    setNotice(decision === "Accepted" ? "Thanks — marked as accepted!" : "Got it — marked as rejected.");
-    setSubmitting(false);
+    setActionError("");
+    try {
+      const res = await fetch(`/api/public/quotes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      setQuote(data.quote);
+      await notify(action === "accept" ? "accept" : "reject");
+      setNotice(action === "accept" ? "Thanks — marked as accepted!" : "Got it — marked as rejected.");
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleRequestAmendment(e) {
     e.preventDefault();
     if (!reason.trim()) return;
     setSubmitting(true);
-    requestAmendment(quote.id, reason.trim());
-    await notify("amendment", reason.trim());
-    setNotice("Sent! We'll be in touch about your requested changes.");
-    setShowReasonBox(false);
-    setSubmitting(false);
+    setActionError("");
+    try {
+      const res = await fetch(`/api/public/quotes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "amend", reason: reason.trim() }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      setQuote(data.quote);
+      await notify("amendment", reason.trim());
+      setNotice("Sent! We'll be in touch about your requested changes.");
+      setShowReasonBox(false);
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleDownload() {
@@ -84,6 +123,23 @@ export default function PublicQuotePage() {
     }
   }
 
+  if (loading) {
+    return (
+      <Centered>
+        <p className="text-sm text-muted">Loading…</p>
+      </Centered>
+    );
+  }
+
+  if (notFound || !quote) {
+    return (
+      <Centered>
+        <p className="text-lg font-semibold text-ink">Quote not found</p>
+        <p className="mt-2 text-sm text-muted">This link may be out of date — please check with us.</p>
+      </Centered>
+    );
+  }
+
   if (quote.status === "Draft") {
     return (
       <Centered>
@@ -92,6 +148,9 @@ export default function PublicQuotePage() {
       </Centered>
     );
   }
+
+  const total = quoteTotal(quote);
+  const canAct = ACTIONABLE_STATUSES.has(quote.status);
 
   return (
     <div className="min-h-screen bg-bg px-5 py-10">
@@ -176,7 +235,7 @@ export default function PublicQuotePage() {
               <>
                 <button
                   type="button"
-                  onClick={() => handleRespond("Accepted")}
+                  onClick={() => respond("accept")}
                   disabled={submitting}
                   className="rounded-lg bg-status-accepted px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
@@ -184,7 +243,7 @@ export default function PublicQuotePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleRespond("Rejected")}
+                  onClick={() => respond("reject")}
                   disabled={submitting}
                   className="rounded-lg border border-status-rejected/40 px-4 py-2 text-sm font-semibold text-status-rejected hover:bg-status-rejected/10 disabled:opacity-50"
                 >
@@ -202,6 +261,7 @@ export default function PublicQuotePage() {
           </div>
 
           {notice && <p className="mt-4 text-sm font-medium text-status-accepted">{notice}</p>}
+          {actionError && <p className="mt-4 text-sm font-medium text-status-rejected">{actionError}</p>}
 
           {showReasonBox && (
             <form onSubmit={handleRequestAmendment} className="mt-4 space-y-3 rounded-lg border border-border bg-surface-2 p-4">

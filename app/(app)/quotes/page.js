@@ -10,9 +10,10 @@ const currency = (n) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 export default function QuotesPage() {
-  const { quotes, getCustomer, updateQuoteStatus, deleteQuote } = useAppData();
+  const { quotes, loading, getCustomer, updateQuoteStatus, deleteQuote } = useAppData();
   const isBoss = useIsBoss();
   const [filter, setFilter] = useState("All");
+  const [busyId, setBusyId] = useState(null);
 
   const filtered = useMemo(() => {
     const sorted = [...quotes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -21,9 +22,24 @@ export default function QuotesPage() {
 
   const pendingAmendments = quotes.filter((q) => q.status === "Amendment Requested").length;
 
-  function handleDelete(quote) {
+  async function handleStatusChange(quote, status) {
+    setBusyId(quote.id);
+    try {
+      await updateQuoteStatus(quote.id, status);
+    } catch (err) {
+      alert(`Couldn't update status: ${err.message}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleDelete(quote) {
     if (!confirm(`Delete ${quote.number}? This can't be undone.`)) return;
-    deleteQuote(quote.id);
+    try {
+      await deleteQuote(quote.id);
+    } catch (err) {
+      alert(`Couldn't delete: ${err.message}`);
+    }
   }
 
   return (
@@ -101,8 +117,9 @@ export default function QuotesPage() {
                     )}
                     <select
                       value={q.status}
-                      onChange={(e) => updateQuoteStatus(q.id, e.target.value)}
-                      className="rounded-md border border-border bg-surface-2 px-1.5 py-1 text-xs text-muted outline-none focus:border-accent"
+                      onChange={(e) => handleStatusChange(q, e.target.value)}
+                      disabled={busyId === q.id}
+                      className="rounded-md border border-border bg-surface-2 px-1.5 py-1 text-xs text-muted outline-none focus:border-accent disabled:opacity-50"
                       aria-label={`Change status for ${q.number}`}
                     >
                       {STATUSES.map((s) => (
@@ -145,7 +162,7 @@ export default function QuotesPage() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-5 py-8 text-center text-muted">
-                  No quotes match this filter.
+                  {loading ? "Loading…" : "No quotes match this filter."}
                 </td>
               </tr>
             )}

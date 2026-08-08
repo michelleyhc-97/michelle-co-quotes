@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppData } from "@/lib/store";
 import QuoteForm from "@/components/QuoteForm";
@@ -7,6 +8,17 @@ import QuoteForm from "@/components/QuoteForm";
 export default function NewQuotePage() {
   const router = useRouter();
   const { customers, addQuote } = useAppData();
+  const [error, setError] = useState("");
+
+  async function handleSave(payload) {
+    setError("");
+    try {
+      await addQuote(payload);
+      router.push("/quotes");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -15,14 +27,13 @@ export default function NewQuotePage() {
         <p className="mt-1 text-sm text-muted">Pick a customer, add line items, and save.</p>
       </div>
 
-      <QuoteForm
-        customers={customers}
-        mode="create"
-        onSave={(payload) => {
-          addQuote({ ...payload, createdAt: new Date().toISOString().slice(0, 10) });
-          router.push("/quotes");
-        }}
-      />
+      {error && (
+        <p className="rounded-lg bg-status-rejected/10 px-4 py-2.5 text-sm font-medium text-status-rejected">
+          {error}
+        </p>
+      )}
+
+      <QuoteForm customers={customers} mode="create" onSave={handleSave} />
     </div>
   );
 }

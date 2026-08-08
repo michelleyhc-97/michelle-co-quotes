@@ -12,22 +12,25 @@ import { buildQuotePdfBlob, downloadBlob } from "@/lib/pdf";
 export default function EditQuotePage() {
   const { id } = useParams();
   const router = useRouter();
-  const { customers, getCustomer, getQuote, updateQuote, deleteQuote } = useAppData();
+  const { customers, loading, getCustomer, getQuote, updateQuote, deleteQuote } = useAppData();
   const isBoss = useIsBoss();
   const quote = getQuote(id);
 
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  if (loading) {
+    return <p className="text-sm text-muted">Loading…</p>;
+  }
 
   if (!quote) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold text-ink">Quote not found</h1>
-        <p className="text-sm text-muted">
-          It may have been deleted, or this is a fresh page load — remember, nothing
-          persists yet, so a reload resets the mock data.
-        </p>
+        <p className="text-sm text-muted">It may have been deleted.</p>
         <Link href="/quotes" className="text-sm font-medium text-accent hover:underline">
           ← Back to Quote Records
         </Link>
@@ -38,10 +41,16 @@ export default function EditQuotePage() {
   const customer = getCustomer(quote.customerId);
   const customerLink = typeof window !== "undefined" ? `${window.location.origin}/q/${quote.id}` : "";
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirm(`Delete ${quote.number}? This can't be undone.`)) return;
-    deleteQuote(quote.id);
-    router.push("/quotes");
+    setDeleting(true);
+    try {
+      await deleteQuote(quote.id);
+      router.push("/quotes");
+    } catch (err) {
+      alert(`Couldn't delete: ${err.message}`);
+      setDeleting(false);
+    }
   }
 
   async function handleDownload() {
@@ -60,15 +69,20 @@ export default function EditQuotePage() {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  function handleSave(payload) {
-    updateQuote(quote.id, {
-      ...payload,
-      // Resolving the quote (changing it away from "Amendment Requested")
-      // clears the old reason so it doesn't linger as stale context.
-      amendmentReason: payload.status === "Amendment Requested" ? quote.amendmentReason : null,
-      amendmentRequestedAt: payload.status === "Amendment Requested" ? quote.amendmentRequestedAt : null,
-    });
-    router.push("/quotes");
+  async function handleSave(payload) {
+    setSaveError("");
+    try {
+      await updateQuote(quote.id, {
+        ...payload,
+        // Resolving the quote (changing it away from "Amendment Requested")
+        // clears the old reason so it doesn't linger as stale context.
+        amendmentReason: payload.status === "Amendment Requested" ? quote.amendmentReason : null,
+        amendmentRequestedAt: payload.status === "Amendment Requested" ? quote.amendmentRequestedAt : null,
+      });
+      router.push("/quotes");
+    } catch (err) {
+      setSaveError(err.message);
+    }
   }
 
   return (
@@ -82,9 +96,10 @@ export default function EditQuotePage() {
           <button
             type="button"
             onClick={handleDelete}
-            className="rounded-lg border border-status-rejected/30 px-4 py-2 text-sm font-semibold text-status-rejected hover:bg-status-rejected/10"
+            disabled={deleting}
+            className="rounded-lg border border-status-rejected/30 px-4 py-2 text-sm font-semibold text-status-rejected hover:bg-status-rejected/10 disabled:opacity-50"
           >
-            Delete Quote
+            {deleting ? "Deleting…" : "Delete Quote"}
           </button>
         )}
       </div>
@@ -130,6 +145,12 @@ export default function EditQuotePage() {
           — no login needed.
         </span>
       </div>
+
+      {saveError && (
+        <p className="rounded-lg bg-status-rejected/10 px-4 py-2.5 text-sm font-medium text-status-rejected">
+          {saveError}
+        </p>
+      )}
 
       <QuoteForm
         customers={customers}

@@ -7,13 +7,15 @@ import { useIsBoss } from "@/lib/UserContext";
 const EMPTY_FORM = { company: "", contact: "", email: "", phone: "" };
 
 export default function CustomersPage() {
-  const { customers, addCustomer, updateCustomer, deleteCustomer, quoteCountForCustomer } =
+  const { customers, loading, addCustomer, updateCustomer, deleteCustomer, quoteCountForCustomer } =
     useAppData();
   const isBoss = useIsBoss();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [query, setQuery] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -32,6 +34,7 @@ export default function CustomersPage() {
   function openAdd() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setFormError("");
     setOpen(true);
   }
 
@@ -43,29 +46,42 @@ export default function CustomersPage() {
       email: customer.email,
       phone: customer.phone,
     });
+    setFormError("");
     setOpen(true);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!form.company.trim()) return;
-    if (editingId) {
-      updateCustomer(editingId, form);
-    } else {
-      addCustomer(form);
+    setSaving(true);
+    setFormError("");
+    try {
+      if (editingId) {
+        await updateCustomer(editingId, form);
+      } else {
+        await addCustomer(form);
+      }
+      setForm(EMPTY_FORM);
+      setOpen(false);
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSaving(false);
     }
-    setForm(EMPTY_FORM);
-    setOpen(false);
   }
 
-  function handleDelete(customer) {
+  async function handleDelete(customer) {
     const count = quoteCountForCustomer(customer.id);
     const warning =
       count > 0
         ? ` This customer has ${count} quote${count === 1 ? "" : "s"} on file — they'll stay, just without a linked customer.`
         : "";
     if (!confirm(`Delete ${customer.company}?${warning}`)) return;
-    deleteCustomer(customer.id);
+    try {
+      await deleteCustomer(customer.id);
+    } catch (err) {
+      alert(`Couldn't delete: ${err.message}`);
+    }
   }
 
   return (
@@ -155,7 +171,9 @@ export default function CustomersPage() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-5 py-8 text-center text-muted">
-                  {customers.length === 0
+                  {loading
+                    ? "Loading…"
+                    : customers.length === 0
                     ? "No customers yet."
                     : `No customers match "${query}".`}
                 </td>
@@ -188,6 +206,11 @@ export default function CustomersPage() {
                 <Input value={form.phone} onChange={set("phone")} />
               </Field>
             </div>
+
+            {formError && (
+              <p className="mt-3 text-sm font-medium text-status-rejected">{formError}</p>
+            )}
+
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
@@ -198,9 +221,10 @@ export default function CustomersPage() {
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent/90"
+                disabled={saving}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent/90 disabled:opacity-50"
               >
-                Save
+                {saving ? "Saving…" : "Save"}
               </button>
             </div>
           </form>

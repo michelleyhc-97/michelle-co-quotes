@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  /* Base surfaces */
+  --bg: #0b0d12;
+  --surface: #12151c;
+  --surface-2: #171a22;
+  --border: #232733;
+
+  /* Text */
+  --ink: #e7e9ee;
+  --muted: #8b92a3;
+  --faint: #565d6e;
+
+  /* Single accent color — used sparingly for primary actions/links */
+  --accent: #6366f1;
+  --accent-ink: #eef0ff;
+
+  /* Status colors — muted, badge-only */
+  --status-draft: #8b92a3;
+  --status-sent: #5b9bd5;
+  --status-accepted: #4caf7d;
+  --status-rejected: #e0697a;
+  --status-amendment: #d9a441;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-status-draft: var(--status-draft);
+  --color-status-sent: var(--status-sent);
+  --color-status-accepted: var(--status-accepted);
+  --color-status-rejected: var(--status-rejected);
+  --color-status-amendment: var(--status-amendment);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+/* Fixed dark theme regardless of system preference — this is an internal
+   admin tool, not a themeable public site. */
+:root {
+  color-scheme: dark;
+}
+
+/* Quiet, consistent scrollbars that fit the dark surface. */
+* {
+  scrollbar-color: var(--border) transparent;
+}

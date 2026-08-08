@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useAppData, quoteTotal, STATUSES } from "@/lib/store";
 import { useIsBoss } from "@/lib/UserContext";
+import { formatCurrency } from "@/lib/quoteUtils";
 import StatusBadge from "@/components/StatusBadge";
 
-const currency = (n) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const currency = (n) => formatCurrency(n, { decimals: 0 });
 
 export default function QuotesPage() {
   const { quotes, loading, getCustomer, updateQuoteStatus, deleteQuote } = useAppData();

@@ -2,12 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { quoteTotal, computeQuoteTotals, IDENTITY } from "@/lib/quoteUtils";
+import { quoteTotal, computeQuoteTotals, IDENTITY, formatCurrency as currency } from "@/lib/quoteUtils";
 import StatusBadge from "@/components/StatusBadge";
 import { buildQuotePdfBlob, downloadBlob } from "@/lib/pdf";
-
-const currency = (n) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
 const ACTIONABLE_STATUSES = new Set(["Sent", "Amendment Requested"]);
 

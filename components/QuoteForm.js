@@ -2,12 +2,9 @@
 
 import { useState } from "react";
 import { STATUSES } from "@/lib/store";
-import { computeQuoteTotals } from "@/lib/quoteUtils";
+import { computeQuoteTotals, formatCurrency as currency } from "@/lib/quoteUtils";
 
 const emptyItem = () => ({ id: crypto.randomUUID(), description: "", qty: 1, unitPrice: 0 });
-
-const currency = (n) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
 /**
  * Shared line-item form used by both "Create Quote" and "Edit Quote".
@@ -140,7 +137,7 @@ export default function QuoteForm({
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 rounded-md border border-transparent px-2 focus-within:border-accent focus-within:bg-surface-2">
-                    <span className="text-faint">$</span>
+                    <span className="text-faint">RM</span>
                     <input
                       type="number"
                       min="0"

@@ -1,5 +1,5 @@
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
-import { quoteTotal, computeQuoteTotals } from "@/lib/quoteUtils";
+import { quoteTotal, computeQuoteTotals, formatCurrency } from "@/lib/quoteUtils";
 
 const styles = StyleSheet.create({
   page: { padding: 48, fontSize: 10, color: "#16181d", fontFamily: "Helvetica" },
@@ -41,8 +41,7 @@ const styles = StyleSheet.create({
   footer: { position: "absolute", bottom: 40, left: 48, right: 48, fontSize: 9, color: "#9ca3af", textAlign: "center" },
 });
 
-const currency = (n) =>
-  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const currency = formatCurrency;
 
 export default function QuotePDFDocument({ quote, customer, identity }) {
   const total = quoteTotal(quote);

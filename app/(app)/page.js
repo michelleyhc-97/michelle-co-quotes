@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAppData, quoteTotal, STATUSES } from "@/lib/store";
+import { formatCurrency } from "@/lib/quoteUtils";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 
@@ -14,8 +15,7 @@ function isThisMonth(dateStr) {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-const currency = (n) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const currency = (n) => formatCurrency(n, { decimals: 0 });
 
 export default function DashboardPage() {
   const { quotes, loading, getCustomer } = useAppData();

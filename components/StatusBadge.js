@@ -9,6 +9,12 @@ const STYLES = {
   Paid: { color: "var(--status-accepted)", bg: "rgba(76,175,125,0.12)" },
   Overdue: { color: "var(--status-rejected)", bg: "rgba(224,105,122,0.12)" },
   Cancelled: { color: "var(--status-draft)", bg: "rgba(139,146,163,0.12)" },
+  // Telegram order statuses
+  "Pending Review": { color: "var(--status-amendment)", bg: "rgba(217,164,65,0.12)" },
+  "Pending Approval": { color: "var(--status-sent)", bg: "rgba(91,155,213,0.12)" },
+  "Pending Payment": { color: "var(--status-sent)", bg: "rgba(91,155,213,0.12)" },
+  "Pending Content Creation": { color: "var(--status-amendment)", bg: "rgba(217,164,65,0.12)" },
+  Processed: { color: "var(--status-accepted)", bg: "rgba(76,175,125,0.12)" },
 };
 
 export default function StatusBadge({ status }) {

@@ -187,9 +187,14 @@ found, please contact customer service"** if nothing matches.
   delete, with a category picker in the form. Currently has 19 real
   services/rights tiers pulled from historical quotes and the boss's
   current pricing. This is what the bot quotes from.
-- **`/telegram-orders`** — read-only list of every order the bot has taken
-  (date, Telegram username, product, qty, unit price, total); boss-only
-  delete for cleanup.
+- **`/telegram-orders`** — every order the bot has taken (date, Telegram
+  username, product, qty, unit price, total), filterable by status, with
+  an inline status dropdown and boss-only delete. Every order starts as
+  **Pending Review** and moves through whichever of **Pending Approval**,
+  **Pending Payment**, **Pending Content Creation**, **Processed**, or
+  **Cancelled** fits your workflow — a plain `status` column
+  (`telegram_orders.status`), not a fixed one-way pipeline, so you can set
+  it to anything at any time.
 
 **Setup** (already done, for reference): `TELEGRAM_BOT_TOKEN` came from
 [@BotFather](https://t.me/BotFather), verified via Telegram's `getMe`;

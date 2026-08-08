@@ -144,47 +144,49 @@ commentary.
 ### Telegram Ordering Bot
 
 **Live:** [@MichelleCC_bot](https://t.me/MichelleCC_bot). Customers order
-straight from Telegram — no login, no app. They message the bot with a
-product and quantity, e.g.:
+straight from Telegram — no login, no app — via a guided button flow:
 
-```
-Livestream Hosting, 2
-```
-
-(also understood: `Livestream Hosting x2`, `Livestream Hosting x 2`,
-`Livestream Hosting 2`) and the bot:
-
-1. Looks it up in `/products` — an exact (case-insensitive) match first,
-   then an unambiguous "starts with" match, so `Livestream Hosting`
-   resolves to the full `Livestream Hosting (per session)` entry without
-   the customer typing the `(per session)` qualifier. Two or more
-   candidates, or zero, both count as not-found — it never guesses.
-2. If found, replies with a clean quote and saves the order to
-   `telegram_orders`:
+1. `/start` (or any message the bot doesn't recognize) shows two category
+   buttons: **Part 1 — Services** and **Part 2 — Usage Rights**, plus an
+   **Others** button.
+2. Tapping a category lists every product in it, one button per row (name
+   + price), so the customer picks rather than types.
+3. Tapping a product asks "How many?" with quick quantity buttons
+   (1 / 2 / 3 / 5 / 10).
+4. Tapping a quantity saves the order to `telegram_orders` and replies
+   with a clean quote:
    ```
    Here's your quote:
 
-   Product: Livestream Hosting (per session)
-   Quantity: 2
-   Unit Price: RM 1,800.00
-   Total: RM 3,600.00
+   Product: Talent Fee (per pax)
+   Quantity: 3
+   Unit Price: RM 500.00
+   Total: RM 1,500.00
    ```
-3. If not found, replies **"Product not found, please contact customer
-   service"** and saves nothing.
-4. Any message it can't parse (or `/start`) gets the current catalog —
-   name and price for every product — so customers actually know what to
-   type, built fresh from `/products` every time rather than hardcoded.
+5. **Others** replies with a message pointing them to contact customer
+   service directly, for anything not in the catalog.
 
-All of this is deliberately simple — one message format, no NLP, no order
-status/workflow. See [`lib/telegram.js`](lib/telegram.js) (parsing,
-matching, sending) and
-[`app/api/telegram/webhook/route.js`](app/api/telegram/webhook/route.js)
-(the actual handler Telegram calls).
+Each button's `callback_data` carries the product id needed for the next
+step, so this whole flow needs no server-side session/conversation state
+between taps — see the `build*Keyboard` helpers in
+[`lib/telegram.js`](lib/telegram.js) and the `callback_query` handling in
+[`app/api/telegram/webhook/route.js`](app/api/telegram/webhook/route.js).
 
-- **`/products`** — your price list; add/edit/delete (name + unit price in
-  RM). Currently seeded with the 10 real services pulled from historical
-  quotes (each had one consistent price across every past quote it
-  appeared in). This is what the bot quotes from.
+The original free-text path still works too, for anyone who already knows
+it — a message like `Livestream Hosting, 2` (also understood: `x2`,
+`x 2`, `2` with no separator) resolves the same way: exact
+(case-insensitive) match first, then an unambiguous "starts with" match
+(so `Livestream Hosting` still resolves to the full `Livestream Hosting
+(per session)` entry without typing the qualifier — two-or-more or zero
+candidates both count as not-found, never a guess), then **"Product not
+found, please contact customer service"** if nothing matches.
+
+- **`/products`** — your price list, grouped into **Part 1 — Services**
+  and **Part 2 — Usage Rights** (a `category` column on each product
+  drives which section it's in, on this page and on the bot); add/edit/
+  delete, with a category picker in the form. Currently has 19 real
+  services/rights tiers pulled from historical quotes and the boss's
+  current pricing. This is what the bot quotes from.
 - **`/telegram-orders`** — read-only list of every order the bot has taken
   (date, Telegram username, product, qty, unit price, total); boss-only
   delete for cleanup.

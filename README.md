@@ -105,10 +105,46 @@ your actual bank name, account holder name, account number, and
 DuitNow-registered phone number/ID there before sending a real invoice to
 a customer.
 
+### AI Insights (Dashboard analytics)
+
+The Dashboard has an **AI Insights** panel — click **Generate Insights** and
+it:
+
+1. Computes a deterministic stats snapshot server-side, from the real
+   customers/quotes/invoices in Supabase — totals, status breakdowns, quote
+   conversion rate, top customers by value, outstanding/overdue invoice
+   amounts, and a 6-month accepted-revenue trend
+   ([`lib/analyticsQueries.js`](lib/analyticsQueries.js)). All plain
+   arithmetic, always shown even if the AI call below fails.
+2. Hands that snapshot to **Gemini** (`gemini-3.6-flash`, via the official
+   [`@google/genai`](https://www.npmjs.com/package/@google/genai) SDK,
+   [`lib/gemini.js`](lib/gemini.js)) to turn into a headline, a few
+   highlights, risks, and concrete recommendations — using
+   [structured JSON output](https://ai.google.dev/gemini-api/docs/structured-output)
+   so the response always matches a fixed shape, referencing your actual
+   numbers and customer names rather than generic advice.
+
+Nothing runs automatically — it's a button, not a page-load side effect —
+so it only costs an API call when you actually want one.
+
+**Why `gemini-3.6-flash`:** as of August 2026 it's the current stable
+"Flash" tier model — the right balance for this job (synthesizing a short
+business narrative from an already-computed stats object, not raw
+number-crunching) between response quality and cost/speed. `gemini-3.1-pro`
+would cost roughly 3–4× more per call for a task this size; the
+`flash-lite` tier is cheaper but noticeably more generic in the
+recommendations it writes. Swap the `MODEL` constant in `lib/gemini.js` if
+you'd rather trade cost for either direction.
+
+Requires `GEMINI_API_KEY` (see **Env vars**) — get/rotate one at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey). Without
+it, the panel still shows the real stats/chart, just without the AI
+commentary.
+
 ## Pages
 
 - `/` — Dashboard: quotes this month, closed, pending, status breakdown,
-  recent quotes
+  recent quotes, and the AI Insights panel above
 - `/customers` — Customer list with search, Add/Edit (modal); Delete is
   boss-only
 - `/quotes` — All quotes, filterable by status (including **Amendment
@@ -203,10 +239,11 @@ in [`proxy.js`](proxy.js).
 ```
 SUPABASE_URL=https://aaxcvrxblpfokltmkqbr.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service_role JWT — server-only, never exposed to the browser>
+GEMINI_API_KEY=<server-only, never exposed to the browser — used by the Dashboard's AI Insights panel>
 ```
 
-Both are already in `.env.local` (gitignored) and set as Vercel Production
-Environment Variables.
+All three are already in `.env.local` (gitignored) and set as Vercel
+Production Environment Variables.
 
 ## PDF export & emailing quotes/invoices
 
@@ -255,4 +292,6 @@ the same key to Vercel's Environment Variables if/when you want this live.
 - Supabase (Postgres) via `@supabase/supabase-js`, server-only
 - `@react-pdf/renderer` for PDF generation (works entirely client-side)
 - [Resend](https://resend.com) for email delivery
+- [Gemini](https://ai.google.dev) (`gemini-3.6-flash` via `@google/genai`)
+  for the Dashboard's AI Insights narrative
 - Signed-cookie auth (same pattern as the marketing site's CMS)

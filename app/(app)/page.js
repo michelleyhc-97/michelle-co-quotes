@@ -5,6 +5,7 @@ import { useAppData, quoteTotal, STATUSES } from "@/lib/store";
 import { formatCurrency } from "@/lib/quoteUtils";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
+import AnalyticsPanel from "@/components/AnalyticsPanel";
 
 const CLOSED = new Set(["Accepted", "Rejected"]);
 const PENDING = new Set(["Draft", "Sent", "Amendment Requested"]);
@@ -55,6 +56,8 @@ export default function DashboardPage() {
         <StatCard label="Closed" value={closed.length} hint="Accepted or Rejected" />
         <StatCard label="Pending" value={pending.length} hint="Draft, Sent, or awaiting an amendment response" />
       </div>
+
+      <AnalyticsPanel />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="rounded-xl border border-border bg-surface">

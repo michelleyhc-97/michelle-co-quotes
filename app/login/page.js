@@ -82,10 +82,6 @@ function LoginForm() {
         >
           {loading ? "Signing in…" : "Sign in"}
         </button>
-
-        <p className="mt-4 text-center text-xs text-faint">
-          Demo accounts: boss / boss-demo-2026 · sales / sales-demo-2026
-        </p>
       </form>
     </div>
   );

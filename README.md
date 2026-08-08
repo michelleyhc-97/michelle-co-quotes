@@ -191,16 +191,20 @@ database write, not browser-local state.
 
 ## Authentication
 
-Two demo accounts, since this is for you and your sales team:
+Two accounts, since this is for you and your sales team: `boss` and
+`sales`. Their passwords are **required** env vars — `BOSS_PASSWORD` and
+`SALES_PASSWORD` — set in `.env.local` (gitignored) and in Vercel's
+Production Environment Variables, never in this file or anywhere else
+committed to the repo. If you ever need to see or rotate them, check
+`.env.local` locally or `vercel env ls` / the Vercel dashboard for
+production — ask whoever set them up if you don't have access.
 
-| Username | Password          | Role  |
-| -------- | ------------------ | ----- |
-| `boss`   | `boss-demo-2026`   | boss  |
-| `sales`  | `sales-demo-2026`  | sales |
-
-Override either password via `BOSS_PASSWORD` / `SALES_PASSWORD` in
-`.env.local`. Sessions are signed cookies (7-day expiry) — this part
-intentionally still doesn't use a database; see **Next steps**.
+`lib/auth.js` has a hardcoded fallback (`boss-demo-2026` /
+`sales-demo-2026`) that only kicks in if those env vars are ever unset —
+it exists purely so local dev doesn't hard-fail with no password
+configured. **Never rely on that fallback in production**; both env vars
+must always be set there. Sessions are signed cookies (7-day expiry) —
+this part intentionally still doesn't use a database; see **Next steps**.
 
 **Role difference:** only the `boss` role can delete customers or quotes.
 Both roles can view, create, and edit everything.

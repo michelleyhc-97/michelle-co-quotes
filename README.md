@@ -28,17 +28,21 @@ When connecting Supabase, the project already had `customers`, `quotes`,
 and `quote_items` tables — with real seed data (7 customers, 14 quotes) —
 that don't quite match the shape this README originally sketched (e.g.
 `company_name`/`contact_person` instead of `company`/`contact`,
-`quote_number` instead of `number`, plus invoicing fields this app doesn't
-have UI for yet: `tax_rate`, `subtotal`, `valid_until`, `notes`). Rather than
-drop and recreate those tables, **the app was adapted to the existing
-schema** — see [`lib/dataMappers.js`](lib/dataMappers.js), which translates
+`quote_number` instead of `number`, plus invoicing fields — `tax_rate`,
+`subtotal`, `valid_until`, `notes` — the app originally had no UI for).
+Rather than drop and recreate those tables, **the app was adapted to the
+existing schema** — see [`lib/dataMappers.js`](lib/dataMappers.js), which translates
 between the database's column names and the camelCase shape every page
 component already expected. No page component needed to change.
 
-One consequence worth knowing:
+All of `tax_rate`, `subtotal`, `valid_until`, and `notes` now have inputs in
+the Create/Edit Quote form — see below.
 
-- **`valid_until` and `notes`** exist on some rows but aren't shown or
-  editable anywhere in the UI yet.
+### Currency
+
+All amounts display as Malaysian Ringgit (`RM 1,000.00`), via a single
+[`formatCurrency`](lib/quoteUtils.js) helper used everywhere money is shown
+(dashboard, quote list, quote form, public quote page, PDF).
 
 ### Tax: SST + Service Charge
 
@@ -56,6 +60,14 @@ the API's saved total can never drift apart. `service_charge_rate` is a new
 column (migration
 [`20260808040000_service_charge.sql`](supabase/migrations/20260808040000_service_charge.sql));
 `tax_rate` already existed.
+
+### Valid Until & Notes
+
+Create/Edit Quote also has **Valid Until** (an optional expiry date) and
+**Notes** (an optional free-text box — payment terms, scope assumptions,
+etc.). Both were pre-existing columns with no UI before; now they show on
+the form, the customer's public quote page (right under the quote number,
+and above the action buttons), and the PDF.
 
 ## Pages
 
@@ -175,10 +187,12 @@ the same key to Vercel's Environment Variables if/when you want this live.
    sales rep has their own login instead of a shared "sales" account.
 2. **Finer permissions** — e.g. sales reps only seeing customers/quotes
    they own.
-3. **`valid_until` / `notes` UI** — the database already has columns for
-   these; they just don't have inputs in the Create/Edit Quote form yet.
-4. **Turn on Resend** for real email delivery (see above) — currently
+3. **Turn on Resend** for real email delivery (see above) — currently
    console-log-only until you add an API key.
+4. **A real Invoice concept** — right now this system only produces
+   *quotations*. There's no separate invoice number, invoice record, or
+   "convert accepted quote → invoice" step; a quote's own number
+   (`Q-2026-0XX`) and PDF are the only paper trail today.
 
 ## Tech
 

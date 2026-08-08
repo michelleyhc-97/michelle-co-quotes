@@ -160,6 +160,8 @@ export default function EditQuotePage() {
         initialStatus={quote.status}
         initialTaxRate={quote.taxRate}
         initialServiceChargeRate={quote.serviceChargeRate}
+        initialValidUntil={quote.validUntil}
+        initialNotes={quote.notes}
         onSave={handleSave}
       />
 

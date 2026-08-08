@@ -21,6 +21,8 @@ export default function QuoteForm({
   // 6% / 10%, but leave both editable per-quote (e.g. for tax-exempt work).
   initialTaxRate = 6,
   initialServiceChargeRate = 10,
+  initialValidUntil = "",
+  initialNotes = "",
   mode = "create",
   onSave,
 }) {
@@ -33,6 +35,8 @@ export default function QuoteForm({
   const [status, setStatus] = useState(initialStatus);
   const [taxRate, setTaxRate] = useState(initialTaxRate);
   const [serviceChargeRate, setServiceChargeRate] = useState(initialServiceChargeRate);
+  const [validUntil, setValidUntil] = useState(initialValidUntil ?? "");
+  const [notes, setNotes] = useState(initialNotes ?? "");
   const [error, setError] = useState("");
 
   const subtotal = items.reduce(
@@ -71,6 +75,8 @@ export default function QuoteForm({
       status: explicitStatus ?? status,
       taxRate: Number(taxRate) || 0,
       serviceChargeRate: Number(serviceChargeRate) || 0,
+      validUntil: validUntil || null,
+      notes: notes.trim(),
       items: items.map(({ id, description, qty, unitPrice }) => ({
         id,
         description: description.trim(),
@@ -82,8 +88,8 @@ export default function QuoteForm({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-border bg-surface p-5">
-        <label className="block max-w-sm">
+      <div className="grid gap-5 rounded-xl border border-border bg-surface p-5 sm:grid-cols-2">
+        <label className="block">
           <span className="text-xs font-medium text-muted">Customer</span>
           <select
             value={customerId}
@@ -97,6 +103,27 @@ export default function QuoteForm({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-medium text-muted">Valid Until (optional)</span>
+          <input
+            type="date"
+            value={validUntil ?? ""}
+            onChange={(e) => setValidUntil(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+          />
+        </label>
+
+        <label className="block sm:col-span-2">
+          <span className="text-xs font-medium text-muted">Notes (optional)</span>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="e.g. Payment terms, scope assumptions, or anything else worth noting on the quote."
+            className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+          />
         </label>
       </div>
 

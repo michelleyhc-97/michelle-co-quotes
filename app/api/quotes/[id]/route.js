@@ -27,6 +27,8 @@ export async function PATCH(request, { params }) {
 
     if (body.customerId !== undefined) update.customer_id = body.customerId;
     if (body.status !== undefined) update.status = body.status;
+    if (body.validUntil !== undefined) update.valid_until = body.validUntil || null;
+    if (body.notes !== undefined) update.notes = body.notes?.trim() || null;
 
     // Editing a quote that had a pending amendment request clears it, unless
     // the caller is explicitly keeping the status as "Amendment Requested".

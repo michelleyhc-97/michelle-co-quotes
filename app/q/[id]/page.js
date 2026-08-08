@@ -169,6 +169,9 @@ export default function PublicQuotePage() {
               <p className="text-xs text-faint">Quote</p>
               <h1 className="text-xl font-semibold text-ink">{quote.number}</h1>
               <p className="mt-1 text-xs text-muted">{quote.createdAt}</p>
+              {quote.validUntil && (
+                <p className="mt-0.5 text-xs text-muted">Valid until {quote.validUntil}</p>
+              )}
             </div>
             <StatusBadge status={quote.status} />
           </div>
@@ -226,6 +229,13 @@ export default function PublicQuotePage() {
               <span className="w-28 text-right text-lg font-semibold text-ink">{currency(total)}</span>
             </div>
           </div>
+
+          {quote.notes && (
+            <div className="mt-6 border-t border-border pt-6">
+              <p className="text-xs text-faint">Notes</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink/80">{quote.notes}</p>
+            </div>
+          )}
 
           {quote.status === "Amendment Requested" && quote.amendmentReason && (
             <div className="mt-6 rounded-lg border border-status-amendment/30 bg-status-amendment/10 p-4">

@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
     borderColor: "#e8c778",
     borderRadius: 4,
   },
+  notesBlock: { marginTop: 20 },
   footer: { position: "absolute", bottom: 40, left: 48, right: 48, fontSize: 9, color: "#9ca3af", textAlign: "center" },
 });
 
@@ -59,6 +60,9 @@ export default function QuotePDFDocument({ quote, customer, identity }) {
             <Text style={styles.quoteTitle}>QUOTE</Text>
             <Text style={styles.quoteMeta}>{quote.number}</Text>
             <Text style={styles.quoteMeta}>{quote.createdAt}</Text>
+            {quote.validUntil && (
+              <Text style={styles.quoteMeta}>Valid until {quote.validUntil}</Text>
+            )}
           </View>
         </View>
 
@@ -109,6 +113,13 @@ export default function QuotePDFDocument({ quote, customer, identity }) {
             <Text style={styles.bold}>{currency(total)}</Text>
           </View>
         </View>
+
+        {quote.notes && (
+          <View style={styles.notesBlock}>
+            <Text style={styles.sectionLabel}>Notes</Text>
+            <Text>{quote.notes}</Text>
+          </View>
+        )}
 
         {quote.status === "Amendment Requested" && quote.amendmentReason && (
           <View style={styles.amendmentBox}>

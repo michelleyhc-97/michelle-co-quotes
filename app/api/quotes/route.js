@@ -36,6 +36,8 @@ export async function POST(request) {
         service_charge_rate: serviceChargeRate,
         subtotal,
         total,
+        valid_until: body.validUntil || null,
+        notes: body.notes?.trim() || null,
       })
       .select()
       .single();

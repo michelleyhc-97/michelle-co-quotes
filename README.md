@@ -35,16 +35,27 @@ schema** — see [`lib/dataMappers.js`](lib/dataMappers.js), which translates
 between the database's column names and the camelCase shape every page
 component already expected. No page component needed to change.
 
-Two consequences worth knowing:
+One consequence worth knowing:
 
-- **Tax is preserved, but not editable.** Some existing quotes have a
-  `tax_rate` applied (their stored `total` is higher than a plain sum of
-  their line items — e.g. Malaysia's 6% SST). Editing such a quote's items
-  recomputes the subtotal and re-applies whatever tax_rate it already had,
-  so you won't silently lose that. New quotes created in this app default
-  to 0% tax, since there's no UI for setting it yet.
 - **`valid_until` and `notes`** exist on some rows but aren't shown or
   editable anywhere in the UI yet.
+
+### Tax: SST + Service Charge
+
+Create/Edit Quote now has **Service Charge %** and **SST %** fields
+(defaulting to Malaysia's standard 10% and 6%), with a live breakdown —
+Subtotal → Service Charge → SST → Grand Total — shown on the form, the
+customer's public quote page, and the PDF. Both rates are editable per
+quote (e.g. set either to 0 for tax-exempt work).
+
+The math follows the standard Malaysian invoicing order: service charge is
+applied to the subtotal first, then SST is applied on top of
+`(subtotal + service charge)` — this lives in one place,
+[`computeQuoteTotals`](lib/quoteUtils.js), so the form's live preview and
+the API's saved total can never drift apart. `service_charge_rate` is a new
+column (migration
+[`20260808040000_service_charge.sql`](supabase/migrations/20260808040000_service_charge.sql));
+`tax_rate` already existed.
 
 ## Pages
 
@@ -115,8 +126,8 @@ in [`proxy.js`](proxy.js).
   (the base schema already existed; migrations here are additive: widening
   the status check constraint to include "Amendment Requested", adding
   `amendment_reason`/`amendment_requested_at` columns, giving `quote_number`
-  a sequence-backed default, and granting `service_role` table access it
-  was missing)
+  a sequence-backed default, granting `service_role` table access it was
+  missing, and adding `service_charge_rate`)
 - **Access pattern:** the browser never talks to Supabase directly. Every
   table has Row Level Security enabled; the app's own API routes (protected
   by the session-cookie auth above) use the `service_role` key server-side
@@ -164,9 +175,8 @@ the same key to Vercel's Environment Variables if/when you want this live.
    sales rep has their own login instead of a shared "sales" account.
 2. **Finer permissions** — e.g. sales reps only seeing customers/quotes
    they own.
-3. **Tax / valid-until / notes UI** — the database already has columns for
-   these (see note above); they just don't have inputs in the Create/Edit
-   Quote form yet.
+3. **`valid_until` / `notes` UI** — the database already has columns for
+   these; they just don't have inputs in the Create/Edit Quote form yet.
 4. **Turn on Resend** for real email delivery (see above) — currently
    console-log-only until you add an API key.
 

@@ -1,5 +1,5 @@
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
-import { quoteTotal } from "@/lib/quoteUtils";
+import { quoteTotal, computeQuoteTotals } from "@/lib/quoteUtils";
 
 const styles = StyleSheet.create({
   page: { padding: 48, fontSize: 10, color: "#16181d", fontFamily: "Helvetica" },
@@ -46,6 +46,7 @@ const currency = (n) =>
 
 export default function QuotePDFDocument({ quote, customer, identity }) {
   const total = quoteTotal(quote);
+  const totals = computeQuoteTotals(quote.subtotal ?? total, quote.taxRate, quote.serviceChargeRate);
 
   return (
     <Document title={`${quote.number} — ${customer?.company ?? "Quote"}`}>
@@ -88,6 +89,22 @@ export default function QuotePDFDocument({ quote, customer, identity }) {
         </View>
 
         <View style={styles.totalsBlock}>
+          <View style={styles.totalRow}>
+            <Text>Subtotal</Text>
+            <Text>{currency(totals.subtotal)}</Text>
+          </View>
+          {quote.serviceChargeRate > 0 && (
+            <View style={styles.totalRow}>
+              <Text>Service Charge ({quote.serviceChargeRate}%)</Text>
+              <Text>{currency(totals.serviceChargeAmount)}</Text>
+            </View>
+          )}
+          {quote.taxRate > 0 && (
+            <View style={styles.totalRow}>
+              <Text>SST ({quote.taxRate}%)</Text>
+              <Text>{currency(totals.taxAmount)}</Text>
+            </View>
+          )}
           <View style={styles.grandTotalRow}>
             <Text style={styles.bold}>Grand Total</Text>
             <Text style={styles.bold}>{currency(total)}</Text>

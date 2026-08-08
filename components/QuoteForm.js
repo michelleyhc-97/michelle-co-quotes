@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { STATUSES } from "@/lib/store";
+import { computeQuoteTotals } from "@/lib/quoteUtils";
 
 const emptyItem = () => ({ id: crypto.randomUUID(), description: "", qty: 1, unitPrice: 0 });
 
@@ -19,6 +20,10 @@ export default function QuoteForm({
   initialCustomerId = "",
   initialItems,
   initialStatus = "Draft",
+  // Malaysian SST + service charge — default a new quote to the standard
+  // 6% / 10%, but leave both editable per-quote (e.g. for tax-exempt work).
+  initialTaxRate = 6,
+  initialServiceChargeRate = 10,
   mode = "create",
   onSave,
 }) {
@@ -29,12 +34,15 @@ export default function QuoteForm({
       : [emptyItem()]
   );
   const [status, setStatus] = useState(initialStatus);
+  const [taxRate, setTaxRate] = useState(initialTaxRate);
+  const [serviceChargeRate, setServiceChargeRate] = useState(initialServiceChargeRate);
   const [error, setError] = useState("");
 
-  const grandTotal = items.reduce(
+  const subtotal = items.reduce(
     (sum, i) => sum + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0),
     0
   );
+  const totals = computeQuoteTotals(subtotal, taxRate, serviceChargeRate);
 
   function updateItem(id, patch) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
@@ -64,6 +72,8 @@ export default function QuoteForm({
     onSave({
       customerId,
       status: explicitStatus ?? status,
+      taxRate: Number(taxRate) || 0,
+      serviceChargeRate: Number(serviceChargeRate) || 0,
       items: items.map(({ id, description, qty, unitPrice }) => ({
         id,
         description: description.trim(),
@@ -159,7 +169,7 @@ export default function QuoteForm({
             ))}
           </tbody>
         </table>
-        <div className="flex items-center justify-between border-t border-border px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-5 py-3">
           <button
             type="button"
             onClick={addItem}
@@ -167,9 +177,53 @@ export default function QuoteForm({
           >
             + Add item
           </button>
-          <div className="text-right">
-            <span className="mr-3 text-sm text-muted">Grand Total</span>
-            <span className="text-lg font-semibold text-ink">{currency(grandTotal)}</span>
+
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted">Service Charge %</span>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={serviceChargeRate}
+                onChange={(e) => setServiceChargeRate(e.target.value)}
+                className="w-16 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm text-ink outline-none focus:border-accent"
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted">SST %</span>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={taxRate}
+                onChange={(e) => setTaxRate(e.target.value)}
+                className="w-16 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm text-ink outline-none focus:border-accent"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="space-y-1.5 border-t border-border px-5 py-4">
+          <div className="flex justify-end gap-3 text-sm">
+            <span className="w-40 text-right text-muted">Subtotal</span>
+            <span className="w-28 text-right text-ink">{currency(totals.subtotal)}</span>
+          </div>
+          <div className="flex justify-end gap-3 text-sm">
+            <span className="w-40 text-right text-muted">
+              Service Charge ({Number(serviceChargeRate) || 0}%)
+            </span>
+            <span className="w-28 text-right text-ink">{currency(totals.serviceChargeAmount)}</span>
+          </div>
+          <div className="flex justify-end gap-3 text-sm">
+            <span className="w-40 text-right text-muted">SST ({Number(taxRate) || 0}%)</span>
+            <span className="w-28 text-right text-ink">{currency(totals.taxAmount)}</span>
+          </div>
+          <div className="flex justify-end gap-3 border-t border-border pt-2 text-base">
+            <span className="w-40 text-right font-medium text-muted">Grand Total</span>
+            <span className="w-28 text-right text-lg font-semibold text-ink">
+              {currency(totals.total)}
+            </span>
           </div>
         </div>
       </div>

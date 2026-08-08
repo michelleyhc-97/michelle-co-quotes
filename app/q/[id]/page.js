@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { quoteTotal, IDENTITY } from "@/lib/store";
+import { quoteTotal, computeQuoteTotals, IDENTITY } from "@/lib/quoteUtils";
 import StatusBadge from "@/components/StatusBadge";
 import { buildQuotePdfBlob, downloadBlob } from "@/lib/pdf";
 
@@ -150,6 +150,7 @@ export default function PublicQuotePage() {
   }
 
   const total = quoteTotal(quote);
+  const totals = computeQuoteTotals(quote.subtotal ?? total, quote.taxRate, quote.serviceChargeRate);
   const canAct = ACTIONABLE_STATUSES.has(quote.status);
 
   return (
@@ -204,11 +205,29 @@ export default function PublicQuotePage() {
             </table>
           </div>
 
-          <div className="mt-4 flex justify-end">
-            <p className="text-lg font-semibold text-ink">
-              <span className="mr-3 text-sm font-normal text-muted">Grand Total</span>
-              {currency(total)}
-            </p>
+          <div className="mt-4 space-y-1.5">
+            <div className="flex justify-end gap-3 text-sm">
+              <span className="w-40 text-right text-muted">Subtotal</span>
+              <span className="w-28 text-right text-ink">{currency(totals.subtotal)}</span>
+            </div>
+            {quote.serviceChargeRate > 0 && (
+              <div className="flex justify-end gap-3 text-sm">
+                <span className="w-40 text-right text-muted">
+                  Service Charge ({quote.serviceChargeRate}%)
+                </span>
+                <span className="w-28 text-right text-ink">{currency(totals.serviceChargeAmount)}</span>
+              </div>
+            )}
+            {quote.taxRate > 0 && (
+              <div className="flex justify-end gap-3 text-sm">
+                <span className="w-40 text-right text-muted">SST ({quote.taxRate}%)</span>
+                <span className="w-28 text-right text-ink">{currency(totals.taxAmount)}</span>
+              </div>
+            )}
+            <div className="flex justify-end gap-3 border-t border-border pt-2">
+              <span className="w-40 text-right text-sm font-normal text-muted">Grand Total</span>
+              <span className="w-28 text-right text-lg font-semibold text-ink">{currency(total)}</span>
+            </div>
           </div>
 
           {quote.status === "Amendment Requested" && quote.amendmentReason && (

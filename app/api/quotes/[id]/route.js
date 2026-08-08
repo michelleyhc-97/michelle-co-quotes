@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getQuoteWithItems, replaceQuoteItems, computeSubtotal } from "@/lib/quoteQueries";
+import { computeQuoteTotals } from "@/lib/quoteUtils";
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -35,22 +36,36 @@ export async function PATCH(request, { params }) {
         body.status === "Amendment Requested" ? body.amendmentRequestedAt : null;
     }
 
-    if (Array.isArray(body.items)) {
-      // Preserve whatever tax_rate this quote already had (there's no UI
-      // for editing tax yet) rather than silently dropping it on save.
+    if (Array.isArray(body.items) || body.taxRate !== undefined || body.serviceChargeRate !== undefined) {
+      // Fall back to whatever this quote already had for whichever of
+      // items/taxRate/serviceChargeRate the caller didn't send, so an
+      // items-only save doesn't silently reset the tax setup (and vice
+      // versa).
       const { data: existing, error: fetchError } = await supabase
         .from("quotes")
-        .select("tax_rate")
+        .select("subtotal, tax_rate, service_charge_rate")
         .eq("id", id)
         .single();
       if (fetchError) throw fetchError;
 
-      const subtotal = computeSubtotal(body.items);
-      const taxRate = Number(existing.tax_rate) || 0;
-      update.subtotal = subtotal;
-      update.total = Math.round(subtotal * (1 + taxRate / 100) * 100) / 100;
+      const rawSubtotal = Array.isArray(body.items)
+        ? computeSubtotal(body.items)
+        : Number(existing.subtotal);
+      const taxRate = body.taxRate !== undefined ? Number(body.taxRate) || 0 : Number(existing.tax_rate) || 0;
+      const serviceChargeRate =
+        body.serviceChargeRate !== undefined
+          ? Number(body.serviceChargeRate) || 0
+          : Number(existing.service_charge_rate) || 0;
+      const { subtotal, total } = computeQuoteTotals(rawSubtotal, taxRate, serviceChargeRate);
 
-      await replaceQuoteItems(id, body.items);
+      update.subtotal = subtotal;
+      update.tax_rate = taxRate;
+      update.service_charge_rate = serviceChargeRate;
+      update.total = total;
+
+      if (Array.isArray(body.items)) {
+        await replaceQuoteItems(id, body.items);
+      }
     }
 
     if (Object.keys(update).length > 0) {

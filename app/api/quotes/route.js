@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { listQuotesWithItems, getQuoteWithItems, replaceQuoteItems, computeSubtotal } from "@/lib/quoteQueries";
+import { computeQuoteTotals } from "@/lib/quoteUtils";
 
 export async function GET() {
   try {
@@ -21,16 +22,20 @@ export async function POST(request) {
   }
 
   try {
-    const subtotal = computeSubtotal(body.items);
+    const rawSubtotal = computeSubtotal(body.items);
+    const taxRate = Number(body.taxRate) || 0;
+    const serviceChargeRate = Number(body.serviceChargeRate) || 0;
+    const { subtotal, total } = computeQuoteTotals(rawSubtotal, taxRate, serviceChargeRate);
 
     const { data: quoteRow, error } = await supabaseAdmin()
       .from("quotes")
       .insert({
         customer_id: body.customerId,
         status: body.status || "Draft",
-        tax_rate: 0,
+        tax_rate: taxRate,
+        service_charge_rate: serviceChargeRate,
         subtotal,
-        total: subtotal,
+        total,
       })
       .select()
       .single();

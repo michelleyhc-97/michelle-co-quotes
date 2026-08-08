@@ -158,6 +158,8 @@ export default function EditQuotePage() {
         initialCustomerId={quote.customerId}
         initialItems={quote.items}
         initialStatus={quote.status}
+        initialTaxRate={quote.taxRate}
+        initialServiceChargeRate={quote.serviceChargeRate}
         onSave={handleSave}
       />
 

@@ -12,7 +12,8 @@ import { buildQuotePdfBlob, downloadBlob } from "@/lib/pdf";
 export default function EditQuotePage() {
   const { id } = useParams();
   const router = useRouter();
-  const { customers, loading, getCustomer, getQuote, updateQuote, deleteQuote } = useAppData();
+  const { customers, loading, getCustomer, getQuote, updateQuote, deleteQuote, invoiceForQuote, addInvoiceFromQuote } =
+    useAppData();
   const isBoss = useIsBoss();
   const quote = getQuote(id);
 
@@ -21,6 +22,7 @@ export default function EditQuotePage() {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
 
   if (loading) {
     return <p className="text-sm text-muted">Loading…</p>;
@@ -40,6 +42,7 @@ export default function EditQuotePage() {
 
   const customer = getCustomer(quote.customerId);
   const customerLink = typeof window !== "undefined" ? `${window.location.origin}/q/${quote.id}` : "";
+  const existingInvoice = invoiceForQuote(quote.id);
 
   async function handleDelete() {
     if (!confirm(`Delete ${quote.number}? This can't be undone.`)) return;
@@ -67,6 +70,17 @@ export default function EditQuotePage() {
     navigator.clipboard?.writeText(customerLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function handleCreateInvoice() {
+    setCreatingInvoice(true);
+    try {
+      const invoiceId = await addInvoiceFromQuote(quote.id);
+      router.push(`/invoices/${invoiceId}`);
+    } catch (err) {
+      alert(`Couldn't create invoice: ${err.message}`);
+      setCreatingInvoice(false);
+    }
   }
 
   async function handleSave(payload) {
@@ -144,6 +158,37 @@ export default function EditQuotePage() {
           The customer link lets them view the quote and accept, reject, or request changes
           — no login needed.
         </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-4">
+        {existingInvoice ? (
+          <>
+            <Link
+              href={`/invoices/${existingInvoice.id}`}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent/90"
+            >
+              View Invoice {existingInvoice.number}
+            </Link>
+            <span className="text-xs text-faint">
+              An invoice was already created from this quote.
+            </span>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleCreateInvoice}
+              disabled={creatingInvoice}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent/90 disabled:opacity-50"
+            >
+              {creatingInvoice ? "Creating…" : "Create Invoice"}
+            </button>
+            <span className="text-xs text-faint">
+              Snapshots this quote&apos;s customer, items, and total into a new invoice with its
+              own number, due date, and payment details — normally done once it&apos;s Accepted.
+            </span>
+          </>
+        )}
       </div>
 
       {saveError && (

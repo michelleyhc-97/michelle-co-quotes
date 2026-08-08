@@ -17,10 +17,10 @@ login screen — see **Authentication** below for the demo accounts.
 
 ## Current status: real, persistent data
 
-Customers and quotes are stored in a real Postgres database (Supabase) —
-adding, editing, or deleting something and refreshing the page keeps it.
-Auth, PDF generation, and email delivery are all real too. Nothing in this
-app is mock data anymore.
+Customers, quotes, and invoices are stored in a real Postgres database
+(Supabase) — adding, editing, or deleting something and refreshing the page
+keeps it. Auth, PDF generation, and email delivery are all real too.
+Nothing in this app is mock data anymore.
 
 ### A note on where the schema came from
 
@@ -69,6 +69,42 @@ etc.). Both were pre-existing columns with no UI before; now they show on
 the form, the customer's public quote page (right under the quote number,
 and above the action buttons), and the PDF.
 
+### Invoices
+
+A real Invoice concept, separate from Quotes:
+
+- From an Accepted quote's edit page, **Create Invoice** snapshots that
+  quote's customer, line items, and total into a new invoice with its own
+  auto-generated number (`INV-2026-0XX`). Editing the original quote
+  afterwards never changes an invoice that's already been issued — see
+  [`lib/invoiceQueries.js`](lib/invoiceQueries.js).
+- `/invoices` lists them, filterable by status (**Unpaid** / **Paid** /
+  **Overdue** / **Cancelled**, changed inline — this app doesn't detect
+  "overdue" automatically, you set it).
+- `/invoices/[id]` lets you set a **Due Date** and **Notes**, download the
+  PDF, email it to the customer, copy their public view link, or delete it
+  (boss-only). Line items themselves are frozen — to bill something
+  different, create a fresh invoice from an updated quote.
+- `/inv/[id]` is the customer's public, no-login view — same pattern as
+  `/q/[id]`, but view-only (no accept/reject; a customer doesn't self-report
+  payment) and it shows **Payment Details** instead of quote actions.
+
+**Payment Details**, shown on the invoice PDF and both invoice pages,
+covers every method you specified — Online Transfer, DuitNow QR,
+Debit/Credit Card, an in-house Installment/PayLater plan (tenure computed
+per-invoice: <RM3,000 → 3 months, RM3,000–RM5,000 → 6 months,
+RM5,000–RM20,000 → 12 months, not offered above that), Atome/GrabPayLater/
+SPayLater, and Auto-Debit. All defined once in
+[`paymentMethodDetails()`](lib/quoteUtils.js) so the PDF and both pages can
+never say something different.
+
+**⚠️ Bank details are placeholders.** `BANK_DETAILS` in
+[`lib/quoteUtils.js`](lib/quoteUtils.js) has obvious placeholder text
+(`[Add your bank name]`, etc.) — nothing fabricated to look real. Fill in
+your actual bank name, account holder name, account number, and
+DuitNow-registered phone number/ID there before sending a real invoice to
+a customer.
+
 ## Pages
 
 - `/` — Dashboard: quotes this month, closed, pending, status breakdown,
@@ -82,10 +118,17 @@ and above the action buttons), and the PDF.
 - `/quotes/[id]/edit` — Edit a quote's customer/items/status, download its
   PDF, email it to the customer, copy the customer's view link, or delete it
   (boss-only)
+- `/invoices` — All invoices, filterable by status, with inline status
+  changes, View, Edit, and boss-only Delete
+- `/invoices/[id]` — Set due date/notes, download PDF, email it, copy the
+  customer's view link, or delete it (boss-only)
 - `/login` — Sign in (see **Authentication**)
 - `/q/[id]` — **Public, no login required.** The page a customer actually
   sees when you send them a quote: view details, download the PDF, and
   Accept / Reject / Request Changes
+- `/inv/[id]` — **Public, no login required.** The page a customer sees
+  when you send them an invoice: view details, payment methods, and
+  download the PDF
 
 Deleting a customer that has existing quotes is allowed — the database sets
 those quotes' `customer_id` to null (`ON DELETE SET NULL`), so they stay on
@@ -126,27 +169,30 @@ intentionally still doesn't use a database; see **Next steps**.
 **Role difference:** only the `boss` role can delete customers or quotes.
 Both roles can view, create, and edit everything.
 
-`/login`, `/q/[id]`, `/api/login`, `/api/notify-amendment`, and
+`/login`, `/q/[id]`, `/inv/[id]`, `/api/login`, `/api/notify-amendment`, and
 `/api/public/*` are the only routes that don't require a session — enforced
 in [`proxy.js`](proxy.js).
 
 ## Database (Supabase)
 
 - **Project:** "michelle@gintell.com's Project" (ref `aaxcvrxblpfokltmkqbr`)
-- **Tables:** `customers`, `quotes`, `quote_items` — see
-  [`supabase/migrations/`](supabase/migrations) for the exact changes made
-  (the base schema already existed; migrations here are additive: widening
-  the status check constraint to include "Amendment Requested", adding
+- **Tables:** `customers`, `quotes`, `quote_items`, `invoices`,
+  `invoice_items` — see [`supabase/migrations/`](supabase/migrations) for
+  the exact changes made (the base schema already existed for the first
+  three; migrations here are additive: widening the status check constraint
+  to include "Amendment Requested", adding
   `amendment_reason`/`amendment_requested_at` columns, giving `quote_number`
   a sequence-backed default, granting `service_role` table access it was
-  missing, and adding `service_charge_rate`)
+  missing, adding `service_charge_rate`, and creating `invoices`/
+  `invoice_items` from scratch with their own `invoice_number_seq`)
 - **Access pattern:** the browser never talks to Supabase directly. Every
   table has Row Level Security enabled; the app's own API routes (protected
   by the session-cookie auth above) use the `service_role` key server-side
   ([`lib/supabaseAdmin.js`](lib/supabaseAdmin.js)), which bypasses RLS by
-  design. The public `/q/[id]` page hits a narrow `/api/public/quotes/[id]`
-  endpoint that can only read/act on one quote at a time — it has no way to
-  list customers or other quotes.
+  design. The public `/q/[id]` and `/inv/[id]` pages hit narrow
+  `/api/public/quotes/[id]` and `/api/public/invoices/[id]` endpoints that
+  can only read (and, for quotes, respond to) one record at a time — no way
+  to list customers or other quotes/invoices.
 - **Local CLI access:** `SUPABASE_ACCESS_TOKEN` (a personal access token,
   not committed anywhere) plus `npx supabase db query --linked "<sql>"` —
   this project's Supabase CLI login uses the Management API rather than a
@@ -162,17 +208,18 @@ SUPABASE_SERVICE_ROLE_KEY=<service_role JWT — server-only, never exposed to th
 Both are already in `.env.local` (gitignored) and set as Vercel Production
 Environment Variables.
 
-## PDF export & emailing quotes
+## PDF export & emailing quotes/invoices
 
 - **Download PDF** (on the edit page, and on the customer's public page)
   generates a real PDF client-side via `@react-pdf/renderer` — company
-  info, customer info, line items, grand total, and (if applicable) the
-  customer's amendment reason.
+  info, customer info, line items, grand total, and (for quotes) the
+  customer's amendment reason, or (for invoices) due date and payment
+  details.
 - **Email to Customer** (edit page) generates that same PDF, then sends it
   as an attachment via [Resend](https://resend.com), along with a link to
-  the customer's `/q/[id]` page. Without `RESEND_API_KEY` set, it just logs
-  to the server console instead — same fallback pattern as the marketing
-  site's contact form.
+  the customer's `/q/[id]` or `/inv/[id]` page. Without `RESEND_API_KEY`
+  set, it just logs to the server console instead — same fallback pattern
+  as the marketing site's contact form.
 
 To turn on real delivery: sign up at [resend.com](https://resend.com) with
 `michelle@gintell.com`, grab an API key from
@@ -182,17 +229,23 @@ the same key to Vercel's Environment Variables if/when you want this live.
 
 ## Next steps
 
-1. **Real user accounts** — replace the two hardcoded demo logins with a
+1. **Fill in real bank/DuitNow details** in `BANK_DETAILS`
+   ([`lib/quoteUtils.js`](lib/quoteUtils.js)) — the invoice payment section
+   currently shows obvious placeholders, by design, until you do.
+2. **Real user accounts** — replace the two hardcoded demo logins with a
    real accounts table (now easy — the database is already here), so each
    sales rep has their own login instead of a shared "sales" account.
-2. **Finer permissions** — e.g. sales reps only seeing customers/quotes
+3. **Finer permissions** — e.g. sales reps only seeing customers/quotes
    they own.
-3. **Turn on Resend** for real email delivery (see above) — currently
+4. **Turn on Resend** for real email delivery (see above) — currently
    console-log-only until you add an API key.
-4. **A real Invoice concept** — right now this system only produces
-   *quotations*. There's no separate invoice number, invoice record, or
-   "convert accepted quote → invoice" step; a quote's own number
-   (`Q-2026-0XX`) and PDF are the only paper trail today.
+5. **Automatic "Overdue" status** — right now an invoice past its due date
+   doesn't flip to Overdue on its own; you'd set it manually, or a small
+   scheduled job could do it.
+6. **Actual card/BNPL payment links** — Debit/Credit Card and
+   Atome/GrabPayLater/SPayLater are currently informational text ("contact
+   us…"); wiring up a real payment gateway would let a customer pay
+   directly from `/inv/[id]` instead.
 
 ## Tech
 

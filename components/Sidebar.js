@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "Dashboard", icon: IconGrid },
   { href: "/customers", label: "Customers", icon: IconUsers },
   { href: "/quotes", label: "Quotes", icon: IconDoc },
+  { href: "/invoices", label: "Invoices", icon: IconReceipt },
 ];
 
 export default function Sidebar() {
@@ -86,6 +87,15 @@ function IconDoc(props) {
       <path d="M5 2.5h7l3 3v12H5z" strokeLinejoin="round" />
       <path d="M12 2.5v3h3" strokeLinejoin="round" />
       <path d="M7 10h6M7 13h6M7 7h3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconReceipt(props) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M5 2.5h10v15l-2-1.3-1.5 1.3-1.5-1.3-1.5 1.3-1.5-1.3-2 1.3z" strokeLinejoin="round" />
+      <path d="M7.5 6.5h5M7.5 9.5h5M7.5 12.5h3" strokeLinecap="round" />
     </svg>
   );
 }

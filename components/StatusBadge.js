@@ -4,6 +4,11 @@ const STYLES = {
   Accepted: { color: "var(--status-accepted)", bg: "rgba(76,175,125,0.12)" },
   Rejected: { color: "var(--status-rejected)", bg: "rgba(224,105,122,0.12)" },
   "Amendment Requested": { color: "var(--status-amendment)", bg: "rgba(217,164,65,0.12)" },
+  // Invoice statuses
+  Unpaid: { color: "var(--status-sent)", bg: "rgba(91,155,213,0.12)" },
+  Paid: { color: "var(--status-accepted)", bg: "rgba(76,175,125,0.12)" },
+  Overdue: { color: "var(--status-rejected)", bg: "rgba(224,105,122,0.12)" },
+  Cancelled: { color: "var(--status-draft)", bg: "rgba(139,146,163,0.12)" },
 };
 
 export default function StatusBadge({ status }) {

@@ -5,15 +5,18 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 // - /login (the login page itself)
 // - /api/login (the login endpoint)
 // - /q/* (the public, customer-facing quote view — customers don't have accounts)
+// - /inv/* (the equivalent public, customer-facing invoice view)
 // - /api/notify-amendment (called from that public page, to email the team)
-// - /api/public/* (the scoped, single-quote read/respond API that page uses —
-//   deliberately separate from /api/quotes, which exposes the full list)
+// - /api/public/* (the scoped, single-record read (and, for quotes, respond)
+//   API those pages use — deliberately separate from /api/quotes and
+//   /api/invoices, which expose the full lists)
 function isPublicPath(pathname) {
   return (
     pathname === "/login" ||
     pathname === "/api/login" ||
     pathname === "/api/notify-amendment" ||
     pathname.startsWith("/q/") ||
+    pathname.startsWith("/inv/") ||
     pathname.startsWith("/api/public/")
   );
 }

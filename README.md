@@ -141,6 +141,62 @@ Requires `GEMINI_API_KEY` (see **Env vars**) — get/rotate one at
 it, the panel still shows the real stats/chart, just without the AI
 commentary.
 
+### Telegram Ordering Bot
+
+Customers can order straight from Telegram — no login, no app. They message
+your bot with a product and quantity, e.g.:
+
+```
+Bracelet, 2
+```
+
+(also understood: `Bracelet x2`, `Bracelet x 2`, `Bracelet 2`) and the bot:
+
+1. Looks up `Bracelet` in `/products` (case-insensitive, exact name match).
+2. If found, replies with a clean quote and saves the order to
+   `telegram_orders`:
+   ```
+   Here's your quote:
+
+   Product: Bracelet
+   Quantity: 2
+   Unit Price: RM 25.00
+   Total: RM 50.00
+   ```
+3. If not found, replies **"Product not found, please contact customer
+   service"** and saves nothing.
+
+All of this is deliberately simple — one message format, one exact-match
+lookup, no NLP, no order status/workflow. See
+[`lib/telegram.js`](lib/telegram.js) (message parsing + sending) and
+[`app/api/telegram/webhook/route.js`](app/api/telegram/webhook/route.js)
+(the actual handler Telegram calls).
+
+- **`/products`** — your price list; add/edit/delete products (name + unit
+  price in RM). This is what the bot quotes from — a customer's message has
+  to match a product name here exactly (case-insensitive) to get a quote.
+- **`/telegram-orders`** — read-only list of every order the bot has taken
+  (date, Telegram username, product, qty, unit price, total); boss-only
+  delete for cleanup.
+
+**Setup (one-time):**
+
+1. Get your bot's token from [@BotFather](https://t.me/BotFather) in
+   Telegram — it looks like `123456789:AAH...` (not your bot's name/
+   username). Add it as `TELEGRAM_BOT_TOKEN` in `.env.local` and as a Vercel
+   Production Environment Variable.
+2. Register the webhook (once, after deploying) so Telegram actually sends
+   messages here — replace `<TOKEN>` and run:
+   ```bash
+   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://quotation-system-rust-tau.vercel.app/api/telegram/webhook&secret_token=<value of TELEGRAM_WEBHOOK_SECRET in .env.local>"
+   ```
+3. Message your bot in Telegram to confirm it replies.
+
+`TELEGRAM_WEBHOOK_SECRET` is already generated and set (see **Env vars**)
+— Telegram echoes it back on every request so the webhook route can tell
+real Telegram traffic apart from a random POST to that URL; you don't need
+to do anything with it beyond the `setWebhook` command above.
+
 ## Pages
 
 - `/` — Dashboard: quotes this month, closed, pending, status breakdown,
@@ -165,6 +221,8 @@ commentary.
 - `/inv/[id]` — **Public, no login required.** The page a customer sees
   when you send them an invoice: view details, payment methods, and
   download the PDF
+- `/products` — Manage the price list the Telegram bot quotes from
+- `/telegram-orders` — Read-only list of orders the bot has taken
 
 Deleting a customer that has existing quotes is allowed — the database sets
 those quotes' `customer_id` to null (`ON DELETE SET NULL`), so they stay on
@@ -209,22 +267,26 @@ this part intentionally still doesn't use a database; see **Next steps**.
 **Role difference:** only the `boss` role can delete customers or quotes.
 Both roles can view, create, and edit everything.
 
-`/login`, `/q/[id]`, `/inv/[id]`, `/api/login`, `/api/notify-amendment`, and
-`/api/public/*` are the only routes that don't require a session — enforced
-in [`proxy.js`](proxy.js).
+`/login`, `/q/[id]`, `/inv/[id]`, `/api/login`, `/api/notify-amendment`,
+`/api/public/*`, and `/api/telegram/webhook` are the only routes that don't
+require a session — enforced in [`proxy.js`](proxy.js). The webhook route
+has its own secret-token check instead (see **Telegram Ordering Bot**),
+since Telegram's servers have no session cookie.
 
 ## Database (Supabase)
 
 - **Project:** "michelle@gintell.com's Project" (ref `aaxcvrxblpfokltmkqbr`)
 - **Tables:** `customers`, `quotes`, `quote_items`, `invoices`,
-  `invoice_items` — see [`supabase/migrations/`](supabase/migrations) for
-  the exact changes made (the base schema already existed for the first
-  three; migrations here are additive: widening the status check constraint
-  to include "Amendment Requested", adding
-  `amendment_reason`/`amendment_requested_at` columns, giving `quote_number`
-  a sequence-backed default, granting `service_role` table access it was
-  missing, adding `service_charge_rate`, and creating `invoices`/
-  `invoice_items` from scratch with their own `invoice_number_seq`)
+  `invoice_items`, `products`, `telegram_orders` — see
+  [`supabase/migrations/`](supabase/migrations) for the exact changes made
+  (the base schema already existed for the first three; migrations here are
+  additive: widening the status check constraint to include "Amendment
+  Requested", adding `amendment_reason`/`amendment_requested_at` columns,
+  giving `quote_number` a sequence-backed default, granting `service_role`
+  table access it was missing, adding `service_charge_rate`, creating
+  `invoices`/`invoice_items` from scratch with their own
+  `invoice_number_seq`, and creating `products`/`telegram_orders` from
+  scratch for the ordering bot)
 - **Access pattern:** the browser never talks to Supabase directly. Every
   table has Row Level Security enabled; the app's own API routes (protected
   by the session-cookie auth above) use the `service_role` key server-side
@@ -244,10 +306,13 @@ in [`proxy.js`](proxy.js).
 SUPABASE_URL=https://aaxcvrxblpfokltmkqbr.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service_role JWT — server-only, never exposed to the browser>
 GEMINI_API_KEY=<server-only, never exposed to the browser — used by the Dashboard's AI Insights panel>
+TELEGRAM_BOT_TOKEN=<server-only — from @BotFather, used by the ordering bot>
+TELEGRAM_WEBHOOK_SECRET=<server-only — already generated, see Telegram Ordering Bot>
 ```
 
-All three are already in `.env.local` (gitignored) and set as Vercel
-Production Environment Variables.
+All are already in `.env.local` (gitignored) and set as Vercel Production
+Environment Variables, **except `TELEGRAM_BOT_TOKEN`** — that one's still
+blank pending the real token (see **Telegram Ordering Bot** above).
 
 ## PDF export & emailing quotes/invoices
 
@@ -298,4 +363,6 @@ the same key to Vercel's Environment Variables if/when you want this live.
 - [Resend](https://resend.com) for email delivery
 - [Gemini](https://ai.google.dev) (`gemini-3.6-flash` via `@google/genai`)
   for the Dashboard's AI Insights narrative
+- [Telegram Bot API](https://core.telegram.org/bots/api) (plain `fetch`,
+  no SDK) for the ordering bot — see **Telegram Ordering Bot**
 - Signed-cookie auth (same pattern as the marketing site's CMS)

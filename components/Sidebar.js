@@ -8,6 +8,8 @@ const LINKS = [
   { href: "/customers", label: "Customers", icon: IconUsers },
   { href: "/quotes", label: "Quotes", icon: IconDoc },
   { href: "/invoices", label: "Invoices", icon: IconReceipt },
+  { href: "/products", label: "Products", icon: IconTag },
+  { href: "/telegram-orders", label: "Telegram Orders", icon: IconChat },
 ];
 
 export default function Sidebar() {
@@ -96,6 +98,23 @@ function IconReceipt(props) {
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
       <path d="M5 2.5h10v15l-2-1.3-1.5 1.3-1.5-1.3-1.5 1.3-1.5-1.3-2 1.3z" strokeLinejoin="round" />
       <path d="M7.5 6.5h5M7.5 9.5h5M7.5 12.5h3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconTag(props) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M9.5 2.5h-3l-4 4v3l8.5 8.5a1.5 1.5 0 0 0 2.1 0l3.9-3.9a1.5 1.5 0 0 0 0-2.1L9.5 2.5z" strokeLinejoin="round" />
+      <circle cx="6.3" cy="6.3" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function IconChat(props) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M2.5 5.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-6l-3.5 3v-3h-1.5a2 2 0 0 1-2-2z" strokeLinejoin="round" />
     </svg>
   );
 }

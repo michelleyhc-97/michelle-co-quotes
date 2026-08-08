@@ -10,11 +10,15 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 // - /api/public/* (the scoped, single-record read (and, for quotes, respond)
 //   API those pages use — deliberately separate from /api/quotes and
 //   /api/invoices, which expose the full lists)
+// - /api/telegram/webhook (called by Telegram's servers, which have no
+//   session cookie — it checks its own secret token header instead, see
+//   that route)
 function isPublicPath(pathname) {
   return (
     pathname === "/login" ||
     pathname === "/api/login" ||
     pathname === "/api/notify-amendment" ||
+    pathname === "/api/telegram/webhook" ||
     pathname.startsWith("/q/") ||
     pathname.startsWith("/inv/") ||
     pathname.startsWith("/api/public/")

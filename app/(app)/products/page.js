@@ -5,7 +5,8 @@ import { useAppData } from "@/lib/store";
 import { useIsBoss } from "@/lib/UserContext";
 import { formatCurrency } from "@/lib/quoteUtils";
 
-const EMPTY_FORM = { name: "", unitPrice: "" };
+const EMPTY_FORM = { name: "", unitPrice: "", category: "service" };
+const CATEGORY_LABELS = { service: "Services", rights: "Usage Rights" };
 
 /** The price list the Telegram bot looks up against — see
  * app/api/telegram/webhook/route.js. A product's `name` must match what a
@@ -32,7 +33,11 @@ export default function ProductsPage() {
 
   function openEdit(product) {
     setEditingId(product.id);
-    setForm({ name: product.name, unitPrice: String(product.unitPrice) });
+    setForm({
+      name: product.name,
+      unitPrice: String(product.unitPrice),
+      category: product.category || "service",
+    });
     setFormError("");
     setOpen(true);
   }
@@ -43,7 +48,11 @@ export default function ProductsPage() {
     setSaving(true);
     setFormError("");
     try {
-      const payload = { name: form.name.trim(), unitPrice: Number(form.unitPrice) || 0 };
+      const payload = {
+        name: form.name.trim(),
+        unitPrice: Number(form.unitPrice) || 0,
+        category: form.category,
+      };
       if (editingId) {
         await updateProduct(editingId, payload);
       } else {
@@ -67,6 +76,11 @@ export default function ProductsPage() {
     }
   }
 
+  const groups = [
+    { key: "service", label: "Part 1 — Services" },
+    { key: "rights", label: "Part 2 — Usage Rights" },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -85,52 +99,67 @@ export default function ProductsPage() {
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-surface">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs text-faint">
-              <th className="px-5 py-3 font-medium">Name</th>
-              <th className="px-5 py-3 font-medium">Unit Price</th>
-              <th className="px-5 py-3 font-medium" />
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id} className="border-t border-border">
-                <td className="px-5 py-3.5 font-medium text-ink">{p.name}</td>
-                <td className="px-5 py-3.5 text-muted">{formatCurrency(p.unitPrice)}</td>
-                <td className="px-5 py-3.5 text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(p)}
-                      className="text-xs font-medium text-muted hover:text-accent"
-                    >
-                      Edit
-                    </button>
-                    {isBoss && (
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(p)}
-                        className="text-xs font-medium text-muted hover:text-status-rejected"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {products.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-muted">
-                  {loading ? "Loading…" : "No products yet — add one so the bot can quote it."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {loading ? (
+        <div className="rounded-xl border border-border bg-surface px-5 py-8 text-center text-sm text-muted">
+          Loading…
+        </div>
+      ) : products.length === 0 ? (
+        <div className="rounded-xl border border-border bg-surface px-5 py-8 text-center text-sm text-muted">
+          No products yet — add one so the bot can quote it.
+        </div>
+      ) : (
+        groups.map((group) => {
+          const rows = products.filter((p) => (p.category || "service") === group.key);
+          if (rows.length === 0) return null;
+          return (
+            <div key={group.key} className="overflow-hidden rounded-xl border border-border bg-surface">
+              <div className="border-b border-border px-5 py-3">
+                <h2 className="text-sm font-semibold text-ink">{group.label}</h2>
+                <p className="mt-0.5 text-xs text-faint">
+                  Shown as its own category on the bot — customers pick from this list.
+                </p>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-faint">
+                    <th className="px-5 py-3 font-medium">Name</th>
+                    <th className="px-5 py-3 font-medium">Unit Price</th>
+                    <th className="px-5 py-3 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((p) => (
+                    <tr key={p.id} className="border-t border-border">
+                      <td className="px-5 py-3.5 font-medium text-ink">{p.name}</td>
+                      <td className="px-5 py-3.5 text-muted">{formatCurrency(p.unitPrice)}</td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(p)}
+                            className="text-xs font-medium text-muted hover:text-accent"
+                          >
+                            Edit
+                          </button>
+                          {isBoss && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(p)}
+                              className="text-xs font-medium text-muted hover:text-status-rejected"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -147,6 +176,19 @@ export default function ProductsPage() {
               </Field>
               <Field label="Unit Price (RM)">
                 <Input type="number" min="0" step="0.01" value={form.unitPrice} onChange={set("unitPrice")} />
+              </Field>
+              <Field label="Category">
+                <select
+                  value={form.category}
+                  onChange={set("category")}
+                  className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                >
+                  {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </Field>
             </div>
 

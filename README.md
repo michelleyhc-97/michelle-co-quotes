@@ -191,9 +191,13 @@ found, please contact customer service"** if nothing matches.
 - **`/products`** — your price list, grouped into **Part 1 — Services**
   and **Part 2 — Usage Rights** (a `category` column on each product
   drives which section it's in, on this page and on the bot); add/edit/
-  delete, with a category picker in the form. Currently has 19 real
-  services/rights tiers pulled from historical quotes and the boss's
-  current pricing. This is what the bot quotes from.
+  delete, with a category picker in the form. Currently focused on the
+  core creative pipeline — Creative Strategy & Content Ideation,
+  Scriptwriting & Visual Storytelling (two duration tiers), and Creative
+  Production (Photography/Videography) — plus the 4 Usage Rights duration
+  tiers. Influencer/KOL/event/social-management services that were seeded
+  from historical quotes were removed on request to keep the bot focused.
+  This is what the bot quotes from.
 - **`/telegram-orders`** — every order the bot has taken (date, Telegram
   username, product, qty, unit price, total), filterable by status, with
   an inline status dropdown and boss-only delete. Every order starts as

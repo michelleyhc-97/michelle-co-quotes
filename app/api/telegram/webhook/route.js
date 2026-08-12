@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { formatCurrency } from "@/lib/quoteUtils";
+import { generateContentIdeas } from "@/lib/gemini";
 import {
   sendTelegramMessage,
   answerCallbackQuery,
@@ -120,6 +121,20 @@ async function handleCallbackQuery(callbackQuery) {
       await sendTelegramMessage(chatId, NOT_FOUND_MESSAGE);
       return;
     }
+
+    // A quick inspiration nudge for actual creative services — doesn't
+    // apply to usage-rights tiers, and never blocks ordering if Gemini
+    // is unavailable or slow to respond.
+    if ((product.category || "service") === "service") {
+      const ideas = await generateContentIdeas(product.name);
+      if (ideas && ideas.length > 0) {
+        const ideasText = ["💡 A few content ideas for this:", "", ...ideas.map((idea) => `• ${idea}`)].join(
+          "\n"
+        );
+        await sendTelegramMessage(chatId, ideasText);
+      }
+    }
+
     await sendTelegramMessage(
       chatId,
       `How many "${product.name}" would you like?`,

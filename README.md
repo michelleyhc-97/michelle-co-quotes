@@ -151,8 +151,15 @@ straight from Telegram — no login, no app — via a guided button flow:
    **Others** button.
 2. Tapping a category lists every product in it, one button per row (name
    + price), so the customer picks rather than types.
-3. Tapping a product asks "How many?" with quick quantity buttons
-   (1 / 2 / 3 / 5 / 10).
+3. Tapping a product in **Part 1 — Services** first gets a Gemini-written
+   nudge — 3 short, concrete content ideas for that specific service — then
+   asks "How many?" with quick quantity buttons (1 / 2 / 3 / 5 / 10).
+   Usage-rights tiers skip straight to quantity (a licensing term doesn't
+   need "content ideas"). If Gemini is slow or unavailable, the ideas
+   message is just skipped — it never blocks ordering. See
+   `generateContentIdeas()` in [`lib/gemini.js`](lib/gemini.js) — same
+   Gemini setup (`gemini-3.6-flash`) as the Dashboard's AI Insights, reused
+   here rather than a second integration.
 4. Tapping a quantity saves the order to `telegram_orders` and replies
    with a clean quote:
    ```
